@@ -71,7 +71,10 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
   - RTF < 0,4 pero texto pobre → probar `medium.en` y medir otra vez.
   - Texto pobre incluso con `medium` → evaluar nube (Groq u OpenAI). El cambio es de
     una línea en `motor.py`.
-- **Estado:** pendiente
+- **Estado:** **en curso** (2026-11-07). Calidad: correcta. Velocidad en este equipo:
+  RTF 2,24 (`small.en`, 2 hilos) — insuficiente. `base.en` no se pudo descargar por
+  caída de la red. **La decisión del modelo se traslada al hito 4**, porque este
+  equipo es el peor caso y no representa al Windows. Medidas completas en `ESTADO.md`.
 
 ---
 
@@ -114,6 +117,13 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 - **Cómo se prueba:** el medidor se mueve con el audio de Zoom.
 - **Terminado cuando:** transcribe y traduce durante 5 minutos seguidos, con el mismo
   aspecto que en Linux.
+- **Paso obligatorio antes de dar el hito por bueno:** correr aquí la medición que no
+  se pudo hacer en Linux:
+  ```bat
+  python subtitulos.py --archivo pruebas\jfk_22s.wav --medir
+  ```
+  y elegir el modelo con el número en la mano (`base.en` si el RTF pasa de 1). Este
+  equipo decide; el Linux de desarrollo solo dio el peor caso.
 - **Riesgo (el único punto ciego del plan):** enumerar los dispositivos de *loopback*.
   Si `soundcard` no los lista bien, se cambia a `pyaudiowpatch` sin tocar el resto.
 - **Estado:** pendiente

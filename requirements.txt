@@ -1,0 +1,14 @@
+# Dependencias mínimas para transcribir (hito 2)
+#
+# Instalar:
+#   .venv/bin/python -m pip install -r requirements.txt
+#
+# No se usa PyTorch: faster-whisper corre sobre CTranslate2, que es mucho más
+# ligero. Es la diferencia entre ~2 GB y ~470 MB.
+
+faster-whisper==1.2.1
+
+# OJO: av 19 eliminó el argumento `metadata_errors` que faster-whisper 1.2.1
+# todavía usa. Con av>=15 la transcripción de archivos falla con TypeError.
+# 13.1.0 es la última con wheel para Python 3.12 y API compatible.
+av==13.1.0

@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """Subtítulos en vivo inglés → español, en la terminal.
 
-Estado actual: HITO 1. Solo se escucha el audio del sistema y se muestra el
-nivel. Todavía no transcribe ni traduce.
+Estado actual: HITO 2. Escucha el audio del sistema y transcribe el inglés.
+Todavía no traduce.
 
     python3 subtitulos.py --listar
-    python3 subtitulos.py
-    python3 subtitulos.py --fuente nombre --duracion 5
+    python3 subtitulos.py --medidor          # solo nivel de volumen
+    python3 subtitulos.py                    # transcribir en vivo
+    python3 subtitulos.py --archivo x.wav --medir
 """
 
 from __future__ import annotations
 
 import argparse
+import queue
 import sys
+import threading
 import time
+from pathlib import Path
 
 import audio
+import motor
+
+UMBRAL_SILENCIO = 0.008  # por debajo de esto no vale la pena gastar CPU
+SEGUNDOS_BLOQUE = 5.0
 
 
 def barra(fraccion: float, ancho: int = 28) -> str:
@@ -39,8 +47,6 @@ def listar() -> int:
 
 
 def medidor(fuente: str, duracion: float | None) -> int:
-    if audio.BYTES_POR_SEGUNDO <= 0:
-        return 1
     proceso = audio.abrir_captura(fuente)
     bloque = audio.BYTES_POR_SEGUNDO // 8  # 125 ms
 
@@ -76,26 +82,118 @@ def medidor(fuente: str, duracion: float | None) -> int:
     return 0
 
 
+def archivo(ruta: str, glosario: str, modelo: str) -> int:
+    """Transcribe un archivo ya grabado. Sirve de prueba y para el hito 5."""
+    motor.cargar(modelo)  # fuera del cronómetro: cargar no es transcribir
+    inicio = time.monotonic()
+    segmentos, info = motor.transcribir_archivo(ruta, glosario, modelo)
+    total = time.monotonic() - inicio
+
+    for segmento in segmentos:
+        print(f"[{segmento.start:6.1f}] {segmento.text.strip()}")
+
+    print()
+    print(f"{len(segmentos)} segmentos · {info.duration:.1f} s de audio "
+          f"en {total:.1f} s de proceso")
+    print(f"RTF: {total / info.duration:.2f}  (< 1 significa más rápido que el habla)")
+    return 0
+
+
+def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool) -> int:
+    proceso = audio.abrir_captura(fuente)
+    cola: queue.Queue[bytes | None] = queue.Queue(maxsize=3)
+    parar = threading.Event()
+
+    def lector() -> None:
+        paso = audio.BYTES_POR_SEGUNDO // 8  # 125 ms
+        acumulado = bytearray()
+        while not parar.is_set():
+            datos = audio.leer(proceso, paso)
+            if not datos:
+                break
+            acumulado += datos
+            if len(acumulado) >= audio.BYTES_POR_SEGUNDO * bloque_seg:
+                bloque = bytes(acumulado)
+                acumulado.clear()
+                if audio.rms(bloque) < UMBRAL_SILENCIO:
+                    continue  # silencio: no se transcribe, se ahorra la CPU
+                try:
+                    cola.put(bloque, timeout=1)
+                except queue.Full:
+                    pass  # preferible perder un bloque a acumular retraso
+        parar.set()
+        cola.put(None)
+
+    def trabajador() -> None:
+        while True:
+            pcm = cola.get()
+            if pcm is None:
+                break
+            inicio = time.monotonic()
+            try:
+                texto = motor.transcribir_pcm(pcm, glosario, modelo)
+            except Exception as error:  # no tumbar la reunión por un bloque raro
+                print(f"\n[error] {error}", file=sys.stderr)
+                continue
+            if not texto:
+                continue
+            sufijo = ""
+            if medir:
+                segundos = len(pcm) / audio.BYTES_POR_SEGUNDO
+                sufijo = f"  (rtf {(time.monotonic() - inicio) / segundos:.2f})"
+            sys.stdout.write("\r" + " " * 60 + "\r")
+            print(f"[{time.strftime('%H:%M:%S')}] {texto}{sufijo}", flush=True)
+
+    hilo_lector = threading.Thread(target=lector, daemon=True)
+    hilo_trabajador = threading.Thread(target=trabajador, daemon=True)
+    hilo_lector.start()
+    hilo_trabajador.start()
+
+    print(f"Fuente: {fuente}")
+    print(f"Modelo: {modelo} · bloques de {bloque_seg:.0f} s")
+    print("Ctrl+C para salir.\n")
+
+    try:
+        while hilo_trabajador.is_alive():
+            hilo_trabajador.join(timeout=0.3)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        parar.set()
+        proceso.terminate()
+        try:
+            proceso.wait(timeout=3)
+        except Exception:
+            proceso.kill()
+
+    return 0
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Subtítulos EN→ES en la terminal (hito 1: medidor de audio)."
-    )
-    parser.add_argument(
-        "--listar", action="store_true", help="mostrar las fuentes de audio y salir"
-    )
-    parser.add_argument(
-        "--fuente", metavar="NOMBRE", help="usar esta fuente en vez de la detectada"
-    )
-    parser.add_argument(
-        "--duracion",
-        type=float,
-        metavar="SEG",
-        help="parar solo tras N segundos (para pruebas)",
-    )
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    parser = argparse.ArgumentParser(description="Subtítulos EN→ES en la terminal.")
+    parser.add_argument("--listar", action="store_true", help="mostrar fuentes y salir")
+    parser.add_argument("--medidor", action="store_true", help="solo nivel de volumen")
+    parser.add_argument("--fuente", metavar="NOMBRE", help="fuente de audio a usar")
+    parser.add_argument("--archivo", metavar="RUTA", help="transcribir un archivo")
+    parser.add_argument("--modelo", default=motor.MODELO_POR_DEFECTO)
+    parser.add_argument("--glosario", default="glosario.txt", help="texto de apoyo")
+    parser.add_argument("--chunk", type=float, default=SEGUNDOS_BLOQUE,
+                        help="segundos de audio por bloque")
+    parser.add_argument("--duracion", type=float, help="parar tras N segundos")
+    parser.add_argument("--medir", action="store_true", help="mostrar el RTF")
     args = parser.parse_args()
 
     if args.listar:
         return listar()
+
+    rutas = Path(args.glosario)
+    glosario = motor.leer_glosario(rutas) if rutas.exists() else ""
+
+    if args.archivo:
+        return archivo(args.archivo, glosario, args.modelo)
 
     fuente = args.fuente or audio.mejor_monitor()
     if not fuente:
@@ -103,7 +201,9 @@ def main() -> int:
         print("Prueba `python3 subtitulos.py --listar` y elige uno con --fuente.")
         return 1
 
-    return medidor(fuente, args.duracion)
+    if args.medidor:
+        return medidor(fuente, args.duracion)
+    return vivo(fuente, glosario, args.modelo, args.chunk, args.medir)
 
 
 if __name__ == "__main__":
