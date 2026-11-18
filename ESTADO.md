@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **Para la IA:** leer al inicio de cada sesión de este proyecto y actualizar al final.
-> **Última actualización:** 2026-11-07 (noche)
+> **Última actualización:** 2026-11-07 (noche, tras commit `b2c6be6`)
 
 ## Dónde estamos
 
@@ -22,7 +22,7 @@
 - Modelo por defecto: **`base.en`** (carpeta local `modelos/base.en-local/`), 2 hilos, int8.
 - ¿Funciona? **Sí.** RTF 0,71–0,73 en este equipo en reposo (medido sin VAD; con VAD no
   empeora). Texto comprensible.
-- **Todo el trabajo de esta sesión está en disco pero SIN COMMIT** (ver «Git» al final).
+- **Todo el hito 3 está commiteado** (`b2c6be6`); el árbol queda limpio.
 
 ## Medidas (2026-11-07, este equipo: Haswell ULT, 2 núcleos reales, sin GPU)
 
@@ -248,15 +248,33 @@ Comprobado que no se come la voz:
 - No se ha podido reproducir el `S***` exacto del vídeo (no se guardó ese audio). Si
   vuelve a salir, el siguiente paso es limpiar repeticiones en el texto, no tocar el VAD.
 
+## Prueba en vivo con VAD (2026-11-07 21:15)
+
+12 bloques seguidos de un vídeo sobre Windows 8, Steam y Linux. **No era el de
+Picasso**: ese sigue pendiente.
+
+- **Ninguna cadena de `S***` y ninguna frase duplicada.** Era justo lo que faltaba
+  por comprobar después de activar el VAD.
+- Frases enteras al traductor: «With Windows 8, Microsoft began to change its
+  philosophy…» no aparece partida. El corte por pausa se confirma en uso real.
+- RTF: 0,25 · 0,27 · 0,27 · 0,48 · 0,29 · **1,31** · 0,27 · 0,52 · 0,27 · 0,48 ·
+  0,28 · 0,70. El 1,31 coincide con un hueco de 24 s entre bloques y la salida
+  Bluetooth; el resto va muy por debajo de 1.
+- **Residuo nuevo:** en un bloque de 12 s Whisper añadió una coletilla inventada
+  al final («At that point, the new source of the system was not the most
+  concerned»). Es la misma familia que el `S***`, pero suave: 1 de 12 bloques.
+  Si se repite, se limpia el texto; no se toca el VAD.
+- Errores de vocabulario (van al glosario): `Steam` → «Steve», `Valve` → «Balby»
+  en inglés y «válvula» en español, «first hand» traducido literal y «couldn't
+  stand idly by» con el sentido cambiado.
+
 ## Próxima acción
 
-1. **Repetir la prueba del vídeo de Picasso**, ahora con VAD. El corte por pausa ya se
-   vio funcionando en esa prueba (frases enteras: «un electricista retirado que había
-   trabajado para Pablo Picasso…»). Falta comprobar que desaparecen las cadenas de
-   `S***` y las frases duplicadas. Mirar también el nombre: `Gunnecht`/`Guinec` →
-   glosario.
-2. Glosario: `yacht` salió como «yup»/«dollar» en el vídeo de yates. Añadirlo a
-   `glosario.txt` (el `initial_prompt` lo sesga) y volver a probar ese vídeo.
+1. Glosario, 5 min: añadir `Steam, Valve, Gabe Newell, Microsoft Store, Windows 8`
+   (vídeo de Windows 8), `yacht` (vídeo de yates) y `Gunnecht` (Picasso). Repetir
+   el vídeo de Windows 8 y comprobar que desaparecen «Steve» y «válvula».
+2. **Prueba del vídeo de Picasso de verdad**: en la sesión anterior se puso otro
+   vídeo. Comprobar `S***`, duplicados y el apellido del electricista.
 3. Decidir el hito 4: **solo si las reuniones van a ser en Windows**. Si son en el
    navegador de este Linux, no hace falta.
 4. Añadir `--bench` para que la medición del hito 4 sea un solo comando.
@@ -299,7 +317,9 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 
 ## Bugs conocidos
 
-- Ninguno abierto.
+- Abierto y suave: **coletilla inventada al final de un bloque largo** (1 de 12
+  bloques el 2026-11-07). No es un bucle de repeticiones. Vigilar; si crece, es
+  limpieza de texto, no VAD.
 - [x] `TypeError: metadata_errors` al transcribir archivos → `av==13.1.0`.
 - [x] `base.en` no descargaba → cliente de HuggingFace colgado; resuelto con `curl`.
 
@@ -314,15 +334,15 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 
 ## Git
 
-Al cerrar la sesión del 2026-11-07 el repositorio tiene **cambios sin confirmar**:
-
-- Modificados: `subtitulos.py`, `motor.py`, `audio.py`, `README.md`, `PLAN.md`,
-  `ESTADO.md`, `requirements.txt`.
-- Sin seguimiento: `traductor.py` (todo el hito 3), que nunca se ha añadido.
-
-No se ha hecho commit a propósito: es decisión del usuario. Cuando diga, un solo commit
-con todo el hito 3 + corte por pausa + VAD deja el proyecto recuperable. Antes de
-commitear, comprobar que `.gitignore` cubre `.venv/`, `__pycache__/` y `modelos/`.
+- **`b2c6be6` — «Hito 3 cerrado: traduccion EN->ES con Argos y corte por pausa».**
+  Incluye `traductor.py`, el corte por pausa, el VAD, el cambio de dispositivo y
+  la documentación (783 líneas añadidas). El árbol queda limpio.
+- **Identidad:** no hay `user.name`/`user.email` en la configuración. Los cuatro
+  commits están firmados como `spicyguy17 <spicyguy17@localhost>`; el último se
+  hizo con variables de entorno para no tocar la configuración global. Para
+  fijarla: `git config user.name "..."` y `git config user.email "..."`.
+- `.gitignore` comprobado antes del commit: cubre `.venv/`, `__pycache__/`,
+  `modelos/` y `pruebas/`. No se subió nada pesado.
 
 ## Notas de entorno
 
