@@ -138,8 +138,10 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
     captura = audio.Captura(fuente, seguir=seguir)
     cola: queue.Queue[bytes | None] = queue.Queue(maxsize=3)
     parar = threading.Event()
+    descartados = 0  # bloques perdidos por no dar abasto la CPU
 
     def lector() -> None:
+        nonlocal descartados
         paso = audio.BYTES_POR_SEGUNDO // 8  # 125 ms
         tope = int(audio.BYTES_POR_SEGUNDO * bloque_seg)
         minimo = int(audio.BYTES_POR_SEGUNDO * MIN_BLOQUE)
@@ -180,7 +182,7 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
             try:
                 cola.put(bloque, timeout=1)
             except queue.Full:
-                pass  # preferible perder un bloque a acumular retraso
+                descartados += 1  # preferible perder un bloque a acumular retraso
         # Si la captura termina sola, el último trozo no se pierde.
         if not parar.is_set() and len(acumulado) - silencio >= minimo:
             cola.put(bytes(acumulado[: len(acumulado) - silencio]))
@@ -230,6 +232,10 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
         parar.set()
         captura.cerrar()
         hilo_lector.join(timeout=2)
+
+    if descartados:
+        print(f"\n[aviso] {descartados} bloque(s) descartados: la CPU no dio abasto.")
+        print("        Cierra programas o prueba con --chunk 8.")
 
     return 0
 

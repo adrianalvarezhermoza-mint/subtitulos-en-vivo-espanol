@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **Para la IA:** leer al inicio de cada sesión de este proyecto y actualizar al final.
-> **Última actualización:** 2026-11-07 (noche, tras commit `b2c6be6`)
+> **Última actualización:** 2026-11-07 (noche)
 
 ## Dónde estamos
 
@@ -22,7 +22,7 @@
 - Modelo por defecto: **`base.en`** (carpeta local `modelos/base.en-local/`), 2 hilos, int8.
 - ¿Funciona? **Sí.** RTF 0,71–0,73 en este equipo en reposo (medido sin VAD; con VAD no
   empeora). Texto comprensible.
-- **Todo el hito 3 está commiteado** (`b2c6be6`); el árbol queda limpio.
+- **Todo el hito 3 está commiteado** (`b2c6be6` y posteriores); el árbol queda limpio.
 
 ## Medidas (2026-11-07, este equipo: Haswell ULT, 2 núcleos reales, sin GPU)
 
@@ -268,6 +268,42 @@ ese vídeo se ha descartado (ver «Próxima acción»).
 - Errores de vocabulario (van al glosario): `Steam` → «Steve», `Valve` → «Balby»
   en inglés y «válvula» en español, «first hand» traducido literal y «couldn't
   stand idly by» con el sentido cambiado.
+
+## ¿El `S***` era por el equipo lento? Probado (2026-11-07)
+
+Hipótesis del usuario. Se simuló el efecto de un equipo lento: si `parec` no puede
+escribir en la tubería, PipeWire tira audio, y lo que llega después no es silencio
+sino un **salto en el tiempo** (frase cortada y pegada a la siguiente).
+
+| Audio | Qué se le hizo | Resultado |
+|---|---|---|
+| `jfk_22s.wav` | nada | correcto (RTF 0,67) |
+| `un_hueco.wav` | borrar 0,5 s en mitad de una frase | se pierden palabras, **no se inventa nada** |
+| `tartamudeo.wav` | borrar 40 ms | correcto |
+| `microcortes.wav` | borrar 40 ms cada 200 ms | el VAD lo descarta todo: sale `…` |
+
+- **La lentitud no produce `S***`: produce texto que falta.** El `S***` necesita
+  audio que no es voz; eso es lo que quita el VAD.
+- Firma para distinguirlos en una reunión: si **faltan frases** → CPU/cola; si sale
+  **texto inventado o repetido** → audio que no es voz.
+- Los archivos de prueba están en `/tmp/opencode/huecos/` (temporales, fuera del repo).
+- Sigue sin reproducirse el `S***` exacto. Si vuelve a salir con el VAD puesto, se
+  limpia el texto; no se toca la captura.
+
+## Contador de bloques descartados (2026-11-07)
+
+Antes, cuando la cola se llenaba el bloque se tiraba **en silencio**: el usuario solo
+notaba que faltaba texto. Ahora `vivo()` cuenta los `queue.Full` y al salir avisa:
+
+```
+[aviso] N bloque(s) descartados: la CPU no dio abasto.
+        Cierra programas o prueba con --chunk 8.
+```
+
+- No cambia el camino normal: es un contador en memoria.
+- Sirve para saber, en una reunión real, si el problema fue la CPU o el audio.
+- Probado que compila y que el modo `--archivo` sigue igual; el aviso solo aparece
+  cuando hay descartes.
 
 ## Próxima acción
 
