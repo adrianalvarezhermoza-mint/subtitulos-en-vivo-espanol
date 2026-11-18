@@ -6,17 +6,26 @@ español en la terminal, sin ventanas y sin enviar el audio a ninguna empresa.**
 Sirve para una sola persona que **solo necesita entender**, no intervenir. Por eso el
 retraso de 6–10 segundos es aceptable y el diseño puede ser mucho más simple y ligero.
 
+## Autoría y créditos
+
+**Código y documentación escritos por un asistente de IA (OpenCode)**, a partir de
+las indicaciones de **spicyguy17**. Las pruebas en vivo, las decisiones de diseño y
+la verificación de los resultados (incluido el cambio de dispositivo Bluetooth y
+las medidas de RTF y de traducción) las hizo spicyguy17 en su equipo.
+
+Se declara expresamente para no atribuir a una persona trabajo realizado por IA.
+
 ## El encargo (restricciones de diseño)
 
 | Restricción | Consecuencia |
 |---|---|
 | **Sin interfaz gráfica** | Todo se imprime en la terminal. Nada de ventanas, iconos ni Tk. |
 | **Lo más liviano posible** | Pocas librerías, modelos pequeños, 1 hilo de captura + 1 de proceso. |
-| **Linux (esta terminal) y Windows (CMD)** | Un solo código; solo cambia la captura de audio. |
+| **Solo Linux (esta terminal)** | Sin código de otros sistemas que mantener. |
 | **Reunión en Zoom** | Se captura el audio del sistema, no la app: da igual navegador o escritorio. |
 | **Solo escuchar** | Se puede usar audio acumulado; no hace falta latencia de conversación. |
 
-## Cómo se usará (se completa cuando exista el código)
+## Cómo se usa
 
 ```bash
 # Linux: detecta solo el monitor de audio del sistema
@@ -24,14 +33,15 @@ python3 subtitulos.py
 
 # Linux: ver qué dispositivos hay y elegir uno
 python3 subtitulos.py --listar
+python3 subtitulos.py --fuente NOMBRE
 
-# Windows: elegir el dispositivo de salida (altavoces o auriculares)
-python subtitulos.py --dispositivo 3
+# Solo Linux: no hay versión para Windows (decisión 2026-11-17)
 
-# Opciones previstas
---modelo small.en      # o base.en si el equipo va justo
---chunk 12             # duración máxima de un bloque (se corta antes en las pausas)
---traductor argos      # argos (offline) | deepl (requiere clave)
+# Opciones reales
+#   --modelo base.en       (por defecto; small.en resultó demasiado lento aquí)
+#   --chunk 12             (tope del bloque; antes se corta en las pausas)
+#   --traductor argos      (argos sin red | deepl con clave | ninguno)
+#   --medidor              (solo ver el nivel de volumen)
 ```
 
 ## Arquitectura
@@ -42,8 +52,7 @@ python subtitulos.py --dispositivo 3
  │ sistema      │ trozos hasta 12 s │ (CPU, int8)   │  texto   │ Argos/API  │
  └──────────────┘              └───────────────┘          └────────────┘
         ▲
-        │  parec            (Linux, monitor de PipeWire)
-        │  WASAPI loopback  (Windows, incluido en el sistema)
+        │  parec (monitor de PipeWire)
 ```
 
 Cuatro piezas, cuatro archivos. Ni una más:
@@ -66,7 +75,6 @@ Más un archivo de datos, que no es código: `glosario.txt` (ver abajo).
   sería gastar CPU para nada.
 - Linux: `parec --format=s16le --rate=16000 --channels=1` escribe PCM crudo por
   *stdout*. Cero librerías de audio.
-- Windows: WASAPI en modo compartido remuestrea solo; se le pide 16 kHz directamente.
 - **Troceado:** se acumula audio y el bloque se cierra en la primera pausa de **0,3 s**,
   con un **tope de 12 s** por si alguien habla sin parar. Así llega la frase entera a
   Whisper y a Argos (con bloques fijos de 5 s se partían y la traducción perdía el
@@ -86,8 +94,17 @@ retraso. Nunca se bloquea la lectura de audio.
 - Una línea por frase terminada, con hora: `[12:03:41] Y así cerramos el trimestre…`
 - La frase "en curso" se reescribe en la misma línea con `\r` y se fija con `\n` al
   terminar. Sin repintar la pantalla → sin parpadeo.
-- UTF-8 en ambos sistemas (`chcp 65001` en CMD + `reconfigure` en Python).
-  En CMD hace falta una fuente TrueType (Consolas) o las tildes salen como cajas.
+- UTF-8 nativo en Linux; no hace falta configurar la terminal.
+
+### Transcripción guardada
+
+Cada sesión escribe en `transcripcion-AAAA-MM-DD.txt`, dentro de la carpeta del
+proyecto: la hora, la frase en inglés y su traducción. El archivo se crea **solo
+en tu equipo** y está en `.gitignore`, así que nunca se sube a GitHub. Es texto
+llano: unas decenas de KB por sesión, y no cambia el consumo de memoria.
+
+Si no se puede crear el archivo, el programa avisa y sigue mostrando los
+subtítulos en pantalla.
 
 ### Glosario: la mejora más barata
 
@@ -118,7 +135,7 @@ La pregunta era explícita. Comparación con los números que importan aquí:
 | OpenAI `whisper-1` / `gpt-4o-transcribe` | nube | ~0 | 1–2 s | muy buena | ~0,36 USD/h | sí | **sí** |
 | AssemblyAI / Deepgram | nube | ~0 | streaming | muy buena | 0,25–0,40 USD/h | sí | **sí** |
 
-**Decisión: transcripción local con `faster-whisper small.en` (int8).**
+**Decisión: transcripción local con `faster-whisper base.en` (int8).**
 
 Por qué, en orden de peso:
 
@@ -204,20 +221,18 @@ reunión), pero para obtener la clave suelen pedir tarjeta para verificar identi
 gratis. La clave gratuita termina en `:fx` y usa `api-free.deepl.com`; el código
 elige el endpoint según la clave.
 
-## Qué cambia entre Linux y Windows
+## Alcance: solo Linux
 
-| Pieza | Linux | Windows | ¿Cambia el código? |
-|---|---|---|---|
-| Captura | `parec` sobre el *monitor* | WASAPI *loopback* (`soundcard`) | **sí, ~40 líneas aisladas** |
-| Transcripción | faster-whisper | igual | no |
-| Traducción | Argos / DeepL | igual | no |
-| Terminal | UTF-8 nativo | `chcp 65001` + fuente TrueType | casi no |
-| Instalación | `apt` + `venv` | instalador de Python + `venv` | no es código |
+La decisión se tomó el 2026-11-17: **no se porta a Windows**. El proyecto se usa en
+esta terminal (Linux) y ahí está terminado en lo que a código se refiere.
 
-Todo lo pesado (Whisper, CTranslate2, Argos) son bibliotecas C++ con versión para cada
-sistema: el mismo `pip install` funciona en ambos. **El único punto ciego es enumerar y
-elegir el dispositivo de *loopback* en Windows**, y se resuelve en 15–30 minutos delante
-de la máquina.
+Razones: el único punto ciego técnico era enumerar el dispositivo de *loopback* de
+WASAPI en un portátil con 4 GB de RAM, sin poder medirlo desde aquí; y todo el valor
+del proyecto depende de que las reuniones ocurran en este equipo. Si eso cambiara,
+el trabajo no se pierde: el historial de Git conserva el plan del hito 4.
+
+Todo lo pesado (Whisper, CTranslate2, Argos) corre aquí en CPU, sin GPU y sin conexión
+salvo que se elija DeepL.
 
 ## Presupuesto de retraso (objetivo)
 
@@ -232,15 +247,25 @@ Si supera los 12 s, se baja el tope con `--chunk 8` (el corte por pausa sigue ac
 
 ## Requisitos
 
-- **Disco:** ~1,5 GB (modelos ~700 MB, dependencias ~500 MB, margen).
-- **RAM:** ~1,5 GB en funcionamiento. Cabe en 8 GB.
-- **CPU:** 4 núcleos es el mínimo razonable para `small.en`.
+- **Disco:** entorno ~1,6 GB (con PyTorch CPU para Argos) + modelos ~230 MB.
+- **RAM:** ~1 GB en funcionamiento con Whisper y Argos cargados (medido: ~965 MB).
+- **CPU:** 2 núcleos reales bastan con `base.en` int8; más núcleos ayudan.
 - **Sin GPU. Sin cuenta. Sin conexión** (salvo que se elija DeepL).
+- **Los modelos no están en el repo** (`.gitignore`): se descargan con `curl` y se
+  copian a `modelos/` (instrucciones en `ESTADO.md`). Sin ellos no arranca.
 
 ## Estado
 
 El avance real, la próxima acción y los bugs viven en **`ESTADO.md`**.
 Los pasos ordenados y sus criterios de aceptación viven en **`PLAN.md`**.
+Para avisar en una clase de que usas la herramienta, hay un texto listo en
+**`AVISO.md`**.
+
+## Licencia
+
+MIT: puedes usar, copiar y modificar el proyecto, también en privado o en otro
+repositorio, siempre que conserves el aviso de autoría. El texto completo está
+en `LICENSE`. Las transcripciones que generes no forman parte del repo.
 
 ## Reglas del proyecto
 

@@ -60,7 +60,7 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 - **Comandos:**
   ```bash
   python -m pip install faster-whisper
-  python subtitulos.py --solo-ingles
+  python subtitulos.py --traductor ninguno
   ```
   La primera ejecución descarga el modelo (~500 MB para `small.en`). Es la única
   descarga grande del proyecto.
@@ -75,8 +75,7 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
     una línea en `motor.py`.
 - **Estado:** **cerrado** (2026-11-07). Modelo elegido: **`base.en`, 2 hilos, int8 →
   RTF 0,71–0,73** en este equipo. `small.en` quedó en 2,24 y se descartó. Texto algo
-  peor que `small.en` pero comprensible. Medidas completas en `ESTADO.md`. En Windows
-  se puede intentar subir a `small.en` (hito 4).
+  peor que `small.en` pero comprensible. Medidas completas en `ESTADO.md`.
 
 ---
 
@@ -107,34 +106,14 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 
 ---
 
-## Hito 4 — Funcionar en el Windows (CMD)
+## Hito 4 — Windows: descartado (2026-11-17)
 
-- **Qué hace:** la misma aplicación, con la captura cambiada a WASAPI *loopback*.
-- **Pasos:**
-  1. Copiar la carpeta (sin `.venv`, sin `modelos/`) al disco interno del Windows.
-  2. Instalar Python 3.12 y crear el entorno:
-     ```bat
-     py -3.12 -m venv .venv
-     .venv\Scripts\activate
-     python -m pip install -r requirements.txt
-     ```
-  3. `chcp 65001` antes de ejecutar, y fuente **Consolas** en la ventana.
-  4. `python subtitulos.py --listar` → elegir el dispositivo correcto
-     (altavoces o auriculares, el que se esté usando).
-  5. Abrir Zoom y hablar (o poner un vídeo) desde otra ventana.
-- **Cómo se prueba:** el medidor se mueve con el audio de Zoom.
-- **Terminado cuando:** transcribe y traduce durante 5 minutos seguidos, con el mismo
-  aspecto que en Linux.
-- **Paso obligatorio antes de dar el hito por bueno:** correr aquí la medición que no
-  se pudo hacer en Linux:
-  ```bat
-  python subtitulos.py --archivo pruebas\jfk_22s.wav --medir
-  ```
-  y elegir el modelo con el número en la mano (`base.en` si el RTF pasa de 1). Este
-  equipo decide; el Linux de desarrollo solo dio el peor caso.
-- **Riesgo (el único punto ciego del plan):** enumerar los dispositivos de *loopback*.
-  Si `soundcard` no los lista bien, se cambia a `pyaudiowpatch` sin tocar el resto.
-- **Estado:** pendiente
+No se porta a Windows. El alcance del proyecto es esta terminal Linux.
+
+Razones: la captura en Windows exigía resolver el *loopback* de WASAPI en un portátil
+de 4 GB al que no podemos medir desde aquí (Windows + Zoom + Whisper + Argos podía
+pasar de 3,5 GB de RAM). El proyecto solo tiene sentido si las reuniones ocurren en
+este equipo. Si se decidiera portar, el plan original queda en el historial de Git.
 
 ---
 
@@ -184,14 +163,10 @@ cifras: eso se resuelve mirando la pantalla un segundo, no con más código.
 
 ---
 
-## Hito 6 (opcional) — Un solo ejecutable
+## Hito 6 — Ejecutable: descartado
 
-- **Qué hace:** empaquetar para Windows con PyInstaller: `subtitulos.exe` + carpeta de
-  modelos. Sin instalar Python en la máquina de la reunión.
-- **Nota:** **no se puede compilar desde Linux**. Se hace en el Windows, o con GitHub
-  Actions usando un runner `windows-latest`.
-- **Terminado cuando:** el `.exe` arranca en una carpeta limpia y transcribe.
-- **Estado:** pendiente (solo si hace falta; no bloquea nada)
+El empaquetado con PyInstaller se descarta junto con el port a Windows. No hay
+versión que empaquetar ni máquina Windows donde compilarla.
 
 ---
 
@@ -202,27 +177,26 @@ implementa sobre la marcha:
 
 - Interfaz gráfica, ventana flotante, bandeja del sistema, colores.
 - Identificar **quién** habla (diarización): multiplica el tamaño y la complejidad.
-- Guardar el acta, resúmenes, exportar `.srt`, historial en disco.
+- Guardar actas, resúmenes, exportar `.srt` o subir el historial a la nube.
+  (Sí se guarda un registro local de texto en `transcripcion-AAAA-MM-DD.txt`; ver README.)
 - Otros idiomas distintos de inglés → español.
 - Latencia de conversación (< 3 s): no hace falta, solo se escucha.
 - App móvil, versión web, Docker.
-- `.exe` empaquetado: solo en el hito 6, y solo si se necesita.
+- Versión para Windows y `.exe` empaquetado: descartados el 2026-11-17.
 
-## Decisiones pendientes
+## Decisiones
 
-| Decisión | Se toma en | Cómo |
-|---|---|---|
-| `small.en` vs `base.en` vs `medium.en` | Hito 2 | según RTF y calidad medidas |
-| Local vs nube para transcribir | Hito 2 | solo si lo local no basta |
-| Argos vs DeepL | Hito 3 | comparando 5 frases |
-| `soundcard` vs `pyaudiowpatch` | Hito 4 | el que enumere bien el *loopback* |
+| Decisión | Resultado |
+|---|---|
+| `small.en` vs `base.en` vs `medium.en` | `base.en`, 2 hilos, int8 (RTF 0,71–0,73); `small.en` se descartó (RTF 2,24). |
+| Local vs nube para transcribir | Local: `faster-whisper`, sin nube. |
+| Argos vs DeepL | Argos por defecto; DeepL opcional con clave. |
+| Windows o solo Linux | Solo Linux (2026-11-17): se descartan el port y el `.exe`. |
 
 ## Riesgos conocidos
 
-1. **El *loopback* de Windows en auriculares.** Captura un dispositivo concreto: si se
-   elige el equivocado, hay silencio. Mitigación: comando `--listar`.
-2. **CPU justa.** Zoom + navegador + Whisper en 4 núcleos. Mitigación: `base.en`,
-   bloques de 3 s, cerrar pestañas.
-3. **Calidad con varias voces.** El punto débil real de Whisper pequeño. Mitigación:
+1. **CPU justa.** Zoom + navegador + Whisper en 2 núcleos. Mitigación: `base.en`,
+   cerrar pestañas y arrancar antes de poner el vídeo.
+2. **Calidad con varias voces.** El punto débil real de Whisper pequeño. Mitigación:
    medirlo en el hito 5 antes de prometer nada.
-4. **Consentimiento.** Capturar audio de una reunión requiere avisar. No es opcional.
+3. **Consentimiento.** Capturar audio de una reunión requiere avisar. No es opcional.

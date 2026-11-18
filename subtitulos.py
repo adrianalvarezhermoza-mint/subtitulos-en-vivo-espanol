@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Subtítulos en vivo inglés → español, en la terminal.
+"""Subtítulos en vivo inglés → español, en la terminal (solo Linux).
 
-Estado actual: HITO 3. Escucha el audio del sistema, transcribe el inglés y lo
-traduce al español.
+Escucha el audio del sistema, transcribe el inglés, lo traduce al español y
+guarda el texto en un archivo local junto a este script.
 
     python3 subtitulos.py --listar
     python3 subtitulos.py --medidor          # solo nivel de volumen
@@ -30,7 +30,7 @@ MIN_BLOQUE = 1.0         # no cortar antes: un trozo más corto no da contexto
 
 
 def barra(fraccion: float, ancho: int = 28) -> str:
-    """Barra ASCII, para que se vea igual en Linux y en CMD."""
+    """Barra ASCII, para que se vea igual en cualquier terminal."""
     llenos = int(round(fraccion * ancho))
     return "#" * llenos + "-" * (ancho - llenos)
 
@@ -126,12 +126,15 @@ def archivo(ruta: str, glosario: str, modelo: str, motor_traducir: str) -> int:
     print()
     print(f"{len(segmentos)} segmentos · {info.duration:.1f} s de audio "
           f"en {total:.1f} s de proceso")
-    print(f"RTF: {total / info.duration:.2f}  (< 1 significa más rápido que el habla)")
+    if info.duration > 0:
+        print(f"RTF: {total / info.duration:.2f}  (< 1 significa más rápido que el habla)")
+    else:
+        print("RTF: no disponible (el archivo no tiene duración)")
     return 0
 
 
 def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool,
-         motor_traducir: str, seguir: bool) -> int:
+         motor_traducir: str, seguir: bool, duracion: float | None = None) -> int:
     # Cargar antes de capturar: si tarda, no se acumula audio viejo en el tubo.
     motor.cargar(modelo)
     motor_traducir = _preparar_traduccion(motor_traducir)
@@ -140,8 +143,54 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
     parar = threading.Event()
     descartados = 0  # bloques perdidos por no dar abasto la CPU
 
-    def lector() -> None:
+    # El texto se guarda solo en este equipo, nunca se envía a ningún servidor.
+    # Se abre antes de arrancar los hilos para que el trabajador pueda escribir.
+    ruta_transcripcion = (Path(__file__).parent /
+                          f"transcripcion-{time.strftime('%Y-%m-%d')}.txt")
+    try:
+        registro = ruta_transcripcion.open("a", encoding="utf-8")
+        registro.write(f"\n=== sesión {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+        registro.flush()
+    except OSError as error:
+        print(f"[aviso] no se pudo guardar la transcripción: {error}", file=sys.stderr)
+        registro = None
+
+    # El trabajador es el único hilo que escribe. El cerrojo evita cerrar el
+    # archivo a mitad de una escritura cuando el usuario pulsa Ctrl+C.
+    cerrojo_registro = threading.Lock()
+    registro_abierto = registro is not None
+
+    def escribir_registro(texto: str) -> None:
+        nonlocal registro_abierto
+        if not registro_abierto:
+            return
+        with cerrojo_registro:
+            if registro_abierto and registro is not None:
+                registro.write(texto)
+                registro.flush()
+
+    def encolar(bloque: bytes) -> None:
+        """Encola sin esperar: si la cola está llena, tira el bloque más viejo.
+
+        Esperar aquí sería malo: mientras el lector espera, `parec` sigue llenando
+        la tubería y se pierde audio. Mejor perder la frase más retrasada.
+        """
         nonlocal descartados
+        try:
+            cola.put_nowait(bloque)
+            return
+        except queue.Full:
+            descartados += 1
+        try:
+            cola.get_nowait()
+        except queue.Empty:
+            pass  # el trabajador acaba de sacarlo: ya hay hueco
+        try:
+            cola.put_nowait(bloque)
+        except queue.Full:
+            pass  # caso límite: se pierde el nuevo antes que parar la lectura
+
+    def lector() -> None:
         paso = audio.BYTES_POR_SEGUNDO // 8  # 125 ms
         tope = int(audio.BYTES_POR_SEGUNDO * bloque_seg)
         minimo = int(audio.BYTES_POR_SEGUNDO * MIN_BLOQUE)
@@ -179,13 +228,10 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
             bloque = bytes(acumulado[:acumulado_sin_pausa])  # sin la pausa final
             acumulado.clear()
             silencio = 0
-            try:
-                cola.put(bloque, timeout=1)
-            except queue.Full:
-                descartados += 1  # preferible perder un bloque a acumular retraso
+            encolar(bloque)
         # Si la captura termina sola, el último trozo no se pierde.
         if not parar.is_set() and len(acumulado) - silencio >= minimo:
-            cola.put(bytes(acumulado[: len(acumulado) - silencio]))
+            encolar(bytes(acumulado[: len(acumulado) - silencio]))
         parar.set()
         cola.put(None)
 
@@ -207,24 +253,31 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
             if medir:
                 segundos = len(pcm) / audio.BYTES_POR_SEGUNDO
                 sufijo = f"  (rtf {(time.monotonic() - inicio) / segundos:.2f})"
+            hora = time.strftime("%H:%M:%S")
             sys.stdout.write("\r" + " " * 60 + "\r")
-            print(f"[{time.strftime('%H:%M:%S')}] {texto}{sufijo}", flush=True)
+            print(f"[{hora}] {texto}{sufijo}", flush=True)
             espanol, motor_traducir = _traducir(texto, motor_traducir)
             if espanol:
                 print(f"           es: {espanol}", flush=True)
+            escribir_registro(f"[{hora}] {texto}\n")
+            if espanol:
+                escribir_registro(f"           es: {espanol}\n")
 
     hilo_lector = threading.Thread(target=lector, daemon=True)
     hilo_trabajador = threading.Thread(target=trabajador, daemon=True)
     hilo_lector.start()
     hilo_trabajador.start()
 
-    print(f"Fuente: {captura.fuente}")
+    print(f"Fuente: {captura.fuente}", flush=True)
     print(f"Modelo: {modelo} · bloques de hasta {bloque_seg:.0f} s, "
-          f"cortados en pausas de {PAUSA_CORTE:.1f} s")
-    print("Ctrl+C para salir.\n")
+          f"cortados en pausas de {PAUSA_CORTE:.1f} s", flush=True)
+    print("Ctrl+C para salir.\n", flush=True)
 
+    inicio = time.monotonic()
     try:
         while hilo_trabajador.is_alive():
+            if duracion is not None and time.monotonic() - inicio >= duracion:
+                break
             hilo_trabajador.join(timeout=0.3)
     except KeyboardInterrupt:
         pass
@@ -232,6 +285,16 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
         parar.set()
         captura.cerrar()
         hilo_lector.join(timeout=2)
+        # El trabajador puede estar terminando un bloque: darle tiempo antes de
+        # cerrar para no perder la última frase. El cerrojo evita que escriba
+        # sobre un archivo ya cerrado si se pasa el tiempo.
+        hilo_trabajador.join(timeout=30)
+        with cerrojo_registro:
+            registro_abierto = False
+            if registro is not None:
+                registro.close()
+        if registro is not None:
+            print(f"Transcripción guardada en {ruta_transcripcion.name}")
 
     if descartados:
         print(f"\n[aviso] {descartados} bloque(s) descartados: la CPU no dio abasto.")
@@ -241,9 +304,6 @@ def vivo(fuente: str, glosario: str, modelo: str, bloque_seg: float, medir: bool
 
 
 def main() -> int:
-    if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
     parser = argparse.ArgumentParser(description="Subtítulos EN→ES en la terminal.")
     parser.add_argument("--listar", action="store_true", help="mostrar fuentes y salir")
     parser.add_argument("--medidor", action="store_true", help="solo nivel de volumen")
@@ -264,6 +324,8 @@ def main() -> int:
         return listar()
 
     rutas = Path(args.glosario)
+    if not rutas.is_absolute():
+        rutas = Path(__file__).parent / rutas
     glosario = motor.leer_glosario(rutas) if rutas.exists() else ""
 
     if args.archivo:
@@ -278,7 +340,7 @@ def main() -> int:
     if args.medidor:
         return medidor(fuente, args.duracion, seguir=args.fuente is None)
     return vivo(fuente, glosario, args.modelo, args.chunk, args.medir, args.traductor,
-                seguir=args.fuente is None)
+                seguir=args.fuente is None, duracion=args.duracion)
 
 
 if __name__ == "__main__":

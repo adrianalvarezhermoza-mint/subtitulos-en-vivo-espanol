@@ -1,4 +1,4 @@
-"""Captura del audio del sistema.
+"""Captura del audio del sistema en Linux.
 
 Solo biblioteca estándar: `parec` (de PipeWire/PulseAudio) escribe PCM crudo por
 su salida estándar y aquí lo leemos por bloques.
@@ -6,9 +6,8 @@ su salida estándar y aquí lo leemos por bloques.
 Formato fijo: 16 kHz, mono, 16 bits con signo little-endian (s16le), que es
 exactamente lo que Whisper espera. Convertir después sería gastar CPU para nada.
 
-En Windows este archivo tendrá un hermano (`audio_windows.py`) con WASAPI
-loopback; la interfaz pública es la misma: listar_fuentes(), mejor_monitor(),
-abrir_captura(), leer(), rms().
+Interfaz pública de este módulo: listar_fuentes(), mejor_monitor(),
+abrir_captura(), leer(), rms(). El alcance del proyecto es solo Linux.
 """
 
 from __future__ import annotations

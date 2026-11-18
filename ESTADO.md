@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **Para la IA:** leer al inicio de cada sesión de este proyecto y actualizar al final.
-> **Última actualización:** 2026-11-07 (noche)
+> **Última actualización:** 2026-11-17 (revisión de código; el código no cambió)
 
 ## Dónde estamos
 
@@ -17,8 +17,9 @@
   evita las repeticiones del modelo y va hasta 6× más rápido con audio ruidoso.
 - Hito 1: falta solo la prueba de 2 min de `--medidor` con un vídeo; el fondo ya está
   demostrado.
-- Siguiente: **hito 4 (Windows), solo si las reuniones van a ocurrir allí**. Si son en el
-  navegador de este Linux, el proyecto ya sirve y el hito 4 se queda opcional.
+- **Windows descartado el 2026-11-17**: el alcance es solo esta terminal Linux. Ya no
+  hay hito 4 ni port pendiente.
+- Siguiente: glosario con datos reales y prueba con una reunión (hito 5).
 - Modelo por defecto: **`base.en`** (carpeta local `modelos/base.en-local/`), 2 hilos, int8.
 - ¿Funciona? **Sí.** RTF 0,71–0,73 en este equipo en reposo (medido sin VAD; con VAD no
   empeora). Texto comprensible.
@@ -44,8 +45,8 @@ Prueba: `pruebas/jfk_22s.wav` (22 s de habla clara).
 - `base.en` transcribe algo peor que `small.en` (fragmenta y confunde alguna palabra),
   pero es la diferencia entre 15 s y 49 s de proceso para 22 s de audio. Con 2 s de
   bloques y 1 voz clara es suficiente.
-- En un CPU moderno de 4 núcleos `base.en` debería quedar en 0,3–0,5. **La medición del
-  hito 4 en Windows decide si se puede subir a `small.en` allí.**
+- En un CPU moderno de 4 núcleos `base.en` debería quedar en 0,3–0,5. No hay medición
+  en Windows: `small.en` queda descartado con las medidas de este equipo.
 
 ## Cómo se descargan los modelos (lección)
 
@@ -314,11 +315,17 @@ notaba que faltaba texto. Ahora `vivo()` cuenta los `queue.Full` y al salir avis
 2. **Primera prueba con una reunión real** (o un vídeo del tema de la reunión).
    Apuntar solo las palabras que salgan mal **y se repitan**; añadirlas al glosario.
    No perseguir el vocabulario de cada vídeo: es infinito y no se traslada.
-3. Decidir el hito 4: **solo si las reuniones van a ser en Windows**. Si son en el
-   navegador de este Linux, no hace falta.
-4. Añadir `--bench` para que la medición del hito 4 sea un solo comando.
+3. Windows y `.exe` descartados (2026-11-17): no hay hito 4 que decidir.
+4. Opcional: añadir `--bench` para medir con un solo comando en Linux.
 5. Pendiente menor: la prueba de 2 min de `--medidor` con vídeo (barra moviéndose,
    0 % al pausar, sin cortes). Cierra el hito 1 por completo.
+6. Publicar en GitHub: confirmar el commit final y crear el repo. Nunca subir
+   `transcripcion-*.txt` (está en `.gitignore`) ni `modelos/`.
+
+Nota (2026-11-17): antes del hito 4 conviene corregir la documentación; ver
+«Revisión de código». Ningún hallazgo bloquea la prueba con la reunión real.
+También se añadió «Autoría y créditos» en `README.md` para publicar en GitHub
+(código escrito por IA, pruebas y decisiones de spicyguy17).
 
 ## Decisión tomada: PyTorch CPU
 
@@ -332,7 +339,7 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 
 - torch 2.15.0+cpu: 209,5 MB de descarga.
 - Entorno final: **1,6 GB** (frente a 447 MB antes).
-- Sin CUDA instalado: no se desperdician ~2,5 GB en este equipo ni en el Windows.
+- Sin CUDA instalado: no se desperdician ~2,5 GB en este equipo.
 
 ## Decisiones tomadas
 
@@ -371,21 +378,132 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 - **`SEGUNDOS_BLOQUE = 12.0` es un tope, no un ritmo**: el bloque se cierra en la pausa
   de 0,3 s. No volver a fijar bloques por reloj.
 
+## Revisión de código (2026-11-17)
+
+Leídos `subtitulos.py`, `audio.py`, `motor.py`, `traductor.py`, `README.md`,
+`PLAN.md`, `requirements.txt`, `glosario.txt` y `.gitignore`. El código sigue
+igual que en el hito 3 y el árbol está limpio. Hallazgos, ninguno bloqueante:
+
+- **Documentación desactualizada:** `README.md` aún decide `small.en` y muestra
+  `--dispositivo 3` (no existe: es `--fuente NOMBRE`). `PLAN.md` hito 2 usa
+  `--solo-ingles` (no existe: es `--traductor ninguno`). Corregir antes del hito 4.
+- **`--duracion` se ignora en vivo**: solo se usa en `--medidor`.
+- **`lector` se bloquea hasta 1 s con la cola llena** (`cola.put(timeout=1)`)
+  y descarta el bloque **nuevo**, no el viejo: `README.md` dice lo contrario.
+  Encaja con los huecos de audio ya medidos cuando la CPU va justa.
+- **`archivo()` divide por `info.duration`**: con un archivo de duración 0 falla.
+- **Windows (ya no aplica):** el `reconfigure` se retiró al descartar el port;
+  el proyecto es solo Linux.
+- **`pruebas/` y `modelos/` están en `.gitignore`**: un clon no trae el WAV ni
+  los modelos; el PLAN dice copiar la carpeta a mano (aclararlo ahí).
+- El RTF impreso mide solo Whisper, no la traducción. La caída DeepL→Argos
+  carga Argos en la primera frase (no precalentada como en el arranque normal).
+
+### Arreglado el 2026-11-17
+
+- **Cola llena:** nueva función `encolar()` en `subtitulos.py`. Usa `put_nowait`,
+  tira el bloque más viejo y nunca para la lectura (antes esperaba 1 s y tiraba
+  el nuevo). Ahora coincide con lo que decía el README.
+- **`--duracion`:** funciona también en vivo, no solo en `--medidor`.
+- **`archivo()`:** ya no divide por cero; con 0 s imprime «RTF: no disponible».
+- **Documentación:** `README.md` y `PLAN.md` reflejan `base.en`, `--fuente` y
+  `--traductor ninguno`. El aviso de `stderr` en Windows se retiró al descartar
+  el port el mismo día (ver «Decisión: solo Linux»).
+
+**Probado:** `py_compile` de los cuatro módulos, `--help`, `--archivo
+pruebas/jfk_22s.wav --medir` (sigue transcribiendo y traduciendo), `--archivo`
+de un WAV de 0 s (sin error) y `--fuente prueba_duracion.monitor --duracion 2`
+con un `module-null-sink` temporal: salió en 2 s, código 0, sin `parec` ni
+altavoz temporal colgados.
+
+**No arreglado (necesita datos del usuario):** glosario con nombres reales,
+prueba con una reunión real y la coletilla inventada. Esta última no tiene audio
+guardado para reproducirla y un filtro genérico podría borrar texto válido: se
+sigue vigilando, sin tocar el VAD.
+
+## Decisión: solo Linux (2026-11-17)
+
+**Windows queda fuera del alcance.** Se eliminan el hito 4, el hito 6 (`.exe`), las
+ramas `win32` de `subtitulos.py` y `traductor.py`, y las referencias a WASAPI en
+`README.md`, `PLAN.md` y `audio.py`.
+
+Razones: la captura en Windows era el único punto ciego (enumerar el *loopback*) y
+no se podía medir aquí; el portátil de destino tiene 3,75 GB de RAM útiles y
+Windows + Zoom + Whisper + Argos podía pasar de 3,5 GB; y todo el valor depende de
+que las reuniones ocurran en este Linux.
+
+### Impedimentos reales para darlo por terminado
+
+1. **Ninguno de código.** Captura, transcripción y traducción funcionan aquí.
+2. **Glosario vacío (datos).** Sin nombres reales, Whisper deforma los propios.
+3. **Sin prueba con una reunión real.** Todas las medidas son de JFK o vídeos de
+   YouTube; falta verificar el criterio 8/10 del hito 5 con varias voces, acentos
+   y compresión de Zoom. Es el impedimento más grande y no es programación.
+4. **Coletilla inventada en 1 de 12 bloques largos.** Suave, pero sin audio
+   guardado no se puede arreglar sin riesgo de borrar texto válido.
+5. **Prueba de 2 min de `--medidor` pendiente** (cierra el hito 1).
+6. **Condición de uso:** en una clase conviene avisar (texto listo en `AVISO.md`);
+   y el diseño asume que solo se escucha: si alguien necesita intervenir, el
+   retraso de 6–10 s no sirve. En un vídeo público de YouTube no hay que avisar.
+7. **Medición:** el RTF de la pasada del 17-nov salió 1,53 con el equipo cargado
+   (histórico 0,71–0,73). Repetir en reposo antes de fiarse.
+
+Conclusión: con Windows fuera, el proyecto está **funcionalmente completo en
+Linux**; lo que falta son datos y evidencia, no código.
+
+## Transcripción guardada (2026-11-17)
+
+A petición del usuario, `vivo()` escribe cada frase en
+`transcripcion-AAAA-MM-DD.txt` (ruta absoluta, junto al script): hora, inglés y
+español. Se abre en modo `a` con una cabecera por sesión, se vuelca con `flush`
+para no perder texto si se corta, y se cierra en `finally` tras esperar al
+trabajador. Si falla al abrirlo, avisa y sigue sin traducir de menos.
+
+- El archivo está en `.gitignore`: es un dato local, no se publica.
+- No ahorra memoria: el texto nunca se acumulaba en el programa. Aporta poder
+  releer y buscar, no rendimiento.
+- `AVISO.md` y `PLAN.md` se actualizaron para no decir que no se guarda nada.
+- También se corrigió la ruta del glosario: con el comando de línea única que usa
+  el usuario, ahora se busca junto al script y no en la carpeta desde la que se
+  llamó.
+
+### Verificación en vivo (2026-11-17)
+
+- Probado con un altavoz virtual (`module-null-sink`) y `pruebas/jfk_22s.wav`:
+  el archivo contuvo las mismas dos frases que aparecieron en pantalla, con hora
+  e inglés. Repetido con Argos activo: también se guardaron las líneas `es:`.
+- Al terminar se imprime `Transcripción guardada en transcripcion-AAAA-MM-DD.txt`.
+  El archivo de prueba se borró después; no queda ningún dato de prueba en el repo.
+- Se añadió `flush` a los mensajes de arranque: al redirigir la salida a un archivo,
+  `Ctrl+C para salir` no aparecía hasta el final y un script podía reproducir el
+  audio tarde. En la terminal interactiva no se notaba, pero era frágil.
+- El cierre del archivo usa un `Lock` y espera al trabajador: si se pulsa Ctrl+C
+  mientras se transcribe el último bloque, ya no puede cerrarse a mitad de una
+  escritura ni perderse esa frase por escribir sobre un archivo cerrado.
+
 ## Git
 
+- **Commit final — «Guardar transcripción local y preparar publicación».**
+  Incluye el guardado en `transcripcion-*.txt` (excluido con `.gitignore`),
+  `AVISO.md`, `LICENSE` MIT, la decisión de solo Linux y las correcciones de
+  cierre, cola, `--duración`, división por cero y ruta del glosario (9 archivos).
+  El árbol queda limpio.
 - **`b2c6be6` — «Hito 3 cerrado: traduccion EN->ES con Argos y corte por pausa».**
   Incluye `traductor.py`, el corte por pausa, el VAD, el cambio de dispositivo y
-  la documentación (783 líneas añadidas). El árbol queda limpio.
-- **Identidad:** no hay `user.name`/`user.email` en la configuración. Los cuatro
-  commits están firmados como `spicyguy17 <spicyguy17@localhost>`; el último se
-  hizo con variables de entorno para no tocar la configuración global. Para
-  fijarla: `git config user.name "..."` y `git config user.email "..."`.
+  la documentación (783 líneas añadidas).
+- **Identidad:** no hay `user.name`/`user.email` en la configuración. Los cinco
+  commits están firmados como `spicyguy17 <spicyguy17@localhost>`; se hicieron con
+  variables de entorno para no tocar la configuración global. Para fijarla:
+  `git config user.name "..."` y `git config user.email "..."`.
+- **Sin remoto:** `git remote -v` está vacío. No se ha hecho push. Para publicar
+  hay que crear el repo en GitHub y añadir el remoto; el usuario no lo pidió aún.
 - `.gitignore` comprobado antes del commit: cubre `.venv/`, `__pycache__/`,
-  `modelos/` y `pruebas/`. No se subió nada pesado.
+  `modelos/`, `pruebas/` y `transcripcion-*.txt`. No se subió nada pesado ni ningún
+  dato de una sesión.
 
 ## Notas de entorno
 
-- Este equipo es el **peor caso** de rendimiento. En Windows debería ir mejor.
+- Este equipo es el **peor caso** de rendimiento del alcance actual (Linux).
 - Modelos en `modelos/` (~321 MB: 141 de Whisper + 84 del `.argosmodel` + 94 instalados),
   entorno en `.venv/` (1,6 GB). Nada en el sistema.
 - El test de 22 s se genera copiando dos veces `pruebas/jfk.wav` con `wave`.
@@ -393,36 +511,19 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 - **Medir siempre con la máquina en reposo.** Con carga 4,17 el RTF subió a 1,15;
   en reposo dio 0,89 y antes 0,71–0,73. El mismo modelo, el mismo audio: cambia la carga.
 
-## Equipo Windows de destino (captura del 2026-11-07)
+## Equipo Windows (histórico, descartado)
 
-- **Portátil, gama baja.** Nombre: `DESKTOP-GP7G2LU`.
-- **CPU:** Intel Core **i3-1005G1** (Ice Lake, 2 núcleos / 4 hilos, 1,2 GHz base,
-  3,4 GHz turbo). Es más moderno y rápido que el i3-4005U de este equipo; tiene AVX-512.
-- **RAM: 4,00 GB (3,75 utilizables).** Este es el límite real del proyecto, no la CPU.
-- **Disco:** SSD Samsung de **477 GB**. Espacio de sobra.
-- **Gráfica:** Intel UHD (128 MB), sin GPU dedicada. Irrelevante: todo va por CPU.
-- **Sistema:** 64 bits. La captura no muestra la versión (¿Windows 10 u 11?). Confirmar
-  con `winver`; con 4 GB, Windows 11 deja muy poco margen.
-- **Audio:** falta saber si usa altavoces o auriculares; decide el dispositivo de
-  *loopback* del hito 4.
-
-### Qué implica para el hito 4
-
-- **`base.en`, no `small.en`.** Con 4 GB de RAM, `small.en` no es viable ni aunque la CPU
-  aguante. Medir igualmente con `--archivo pruebas\jfk_22s.wav --medir`.
-- **`cpu_threads=2`** también aquí: 2 núcleos reales, igual que en este equipo.
-- **Riesgo de RAM:** Windows (2–2,5 GB) + Zoom (0,4 GB) + Whisper (0,3 GB) + Argos
-  (0,3–0,5 GB) puede pasar de 3,5 GB. Mitigación: cerrar el navegador, usar `base.en`,
-  y probar `ARGOS_CHUNK_TYPE=MINISBD` para no cargar Stanza/PyTorch en memoria.
-- **Alternativa si no cabe:** DeepL para traducir (no carga Argos en local) o traducir
-  solo lo que se muestra, no todo.
+Se descartó el 2026-11-17. El portátil `DESKTOP-GP7G2LU` tiene un i3-1005G1
+(2 núcleos) y 4 GB de RAM (3,75 útiles): Windows + Zoom + Whisper + Argos podía
+pasar de 3,5 GB. No se portó ni se midió allí. El detalle original está en el
+historial de Git.
 
 ## Limpieza de modelos (2026-11-07)
 
 - Borrado `models--Systran--faster-whisper-small.en` y su blob (`blobs/e6`, 462 MB):
   descartado por lento. `modelos/` pasó de 691 MB a 227 MB.
 - Se conservan `base.en-local/` (141 MB) y `argos/translate-en_es-1_0.argosmodel` (84 MB),
-  que son los que se copiarán al Windows.
+  que son los que usa este Linux.
 - `models--Systran--faster-whisper-base.en/` (2,5 MB) es una caché incompleta de
   HuggingFace sin `model.bin`; no se usa (el modelo real es `base.en-local/`). Se puede
   borrar cuando se quiera.

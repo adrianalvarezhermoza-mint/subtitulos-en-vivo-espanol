@@ -18,6 +18,9 @@ modelos/
 *.srt
 pruebas/
 
+# Transcripciones generadas (datos de la sesión, nunca se suben)
+transcripcion-*.txt
+
 # Secretos
 .env
 *.key

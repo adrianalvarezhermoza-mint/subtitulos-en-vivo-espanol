@@ -248,9 +248,6 @@ def comprobar() -> int:
 
 
 def main() -> int:
-    if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
     parser = argparse.ArgumentParser(description="Traducir una frase inglés → español.")
     parser.add_argument("texto", nargs="*", help="frase a traducir")
     parser.add_argument("--motor", default="auto", choices=["auto", "argos", "deepl", "mentira"])
