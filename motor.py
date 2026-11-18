@@ -60,6 +60,10 @@ def transcribir_pcm(pcm: bytes, glosario: str = "", nombre: str = MODELO_POR_DEF
         beam_size=1,
         condition_on_previous_text=False,
         initial_prompt=glosario or None,
+        # El VAD descarta música, ruido y silencio antes de transcribir. Sin él, un
+        # bloque que acaba en ruido hace que el modelo se repita ("S*** S*** …") y
+        # además cuesta mucho más: medido, 20,07 s frente a 3,47 s con el mismo audio.
+        vad_filter=True,
     )
     return " ".join(s.text.strip() for s in segmentos).strip()
 
@@ -76,6 +80,7 @@ def transcribir_archivo(ruta: str | Path, glosario: str = "", nombre: str = MODE
         beam_size=1,
         condition_on_previous_text=False,
         initial_prompt=glosario or None,
+        vad_filter=True,
     )
     return list(segmentos), info
 

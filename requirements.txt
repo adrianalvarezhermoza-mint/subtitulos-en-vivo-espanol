@@ -12,3 +12,14 @@ faster-whisper==1.2.1
 # todavía usa. Con av>=15 la transcripción de archivos falla con TypeError.
 # 13.1.0 es la última con wheel para Python 3.12 y API compatible.
 av==13.1.0
+
+# Traducción (hito 3): NO se instala aquí a propósito.
+#
+# argostranslate → stanza → torch. El wheel normal de torch en Linux trae CUDA
+# (~2,5–3 GB) aunque no haya GPU. En este equipo, instalar primero el wheel CPU:
+#
+#   .venv/bin/python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   .venv/bin/python -m pip install argostranslate
+#
+# El modelo en→es se instala solo desde modelos/argos/*.argosmodel, sin red.
+#argostranslate==1.11.0

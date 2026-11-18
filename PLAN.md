@@ -44,10 +44,12 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
   cortes ni errores durante 2 minutos seguidos.
 - **Riesgo:** el nombre del monitor cambia si se conectan auriculares. El programa debe
   **descubrirlo solo**, no llevarlo escrito a mano.
-- **Estado:** **escrito y verificado a medias** (2026-11-07). `audio.py` y
-  `subtitulos.py` existen; la captura responde a un tono de prueba (52 % de nivel) y
-  marca 0 % en silencio. **Falta** confirmarlo con un vídeo de YouTube, que es la
-  prueba que cuenta.
+- **Estado:** **verificado en lo esencial** (2026-11-07). Un tono de prueba mueve la
+  barra al 52 % y el silencio la deja en 0 %. La captura de YouTube se confirmó de
+  forma indirecta en el hito 3 (10 bloques transcritos) y de forma directa al cambiar
+  a Bluetooth a mitad de vídeo: `[audio] salida cambiada: …` y siguió transcribiendo.
+  **Falta solo** la prueba de 2 minutos de `--medidor` con un vídeo (la barra moviéndose
+  y volviendo a 0 % al pausar); el fondo del hito ya está demostrado.
 
 ---
 
@@ -83,11 +85,12 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 - **Qué hace:** traduce cada frase al español y la imprime con tildes correctas.
 - **Comandos:**
   ```bash
+  # PyTorch CPU primero: evita los ~2,5 GB de CUDA que no se usan.
+  python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
   python -m pip install argostranslate
-  python -c "import argostranslate.package as p; p.update_package_index(); \
-             pk=p.get_available_packages(); \
-             p.install_from_path([x for x in pk if x.from_code=='en' and x.to_code=='es'][0].download())"
-  python subtitulos.py
+  # El modelo en→es se instala solo desde modelos/argos/*.argosmodel, sin red.
+  python traductor.py --comprobar
+  python traductor.py "hello world"
   ```
 - **Cómo se prueba:** mismo vídeo del hito 2. Comparar 5 frases de Argos contra las
   mismas 5 pasadas por DeepL (si se tiene clave).
@@ -95,7 +98,12 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
   inglés, y las tildes/ñ salen bien.
 - **Puerta de decisión:** si Argos confunde el sentido en más de 1 de cada 5 frases,
   se activa DeepL por defecto (`--traductor deepl`). Solo se envía texto.
-- **Estado:** pendiente
+- **Estado:** **cerrado** (2026-11-07). `traductor.py` e integración en `subtitulos.py`
+  con Argos real. Prueba en vivo con YouTube: 10 bloques seguidos con inglés + español,
+  tildes correctas, RTF 0,41–0,58 tras el primer bloque. Ajustes medidos aplicados
+  (`int8`, `MINISBD`, `beam_size=1`, 2 hilos). Calidad: suficiente para seguir una
+  reunión; falla alguna palabra aislada (`yacht` → «yup»/«dollar»), que es trabajo del
+  glosario (hito 5).
 
 ---
 

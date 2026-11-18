@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
+import time
 from array import array
 
 RATE = 16_000
@@ -81,6 +82,18 @@ def abrir_captura(fuente: str) -> subprocess.Popen:
     )
 
 
+def _cerrar(proceso: subprocess.Popen) -> None:
+    """Termina `parec` sin dejar procesos colgados."""
+    if proceso.poll() is not None:
+        return
+    proceso.terminate()
+    try:
+        proceso.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proceso.kill()
+        proceso.wait(timeout=3)
+
+
 def leer(proceso: subprocess.Popen, n_bytes: int) -> bytes:
     """Lee exactamente n_bytes (o menos si el proceso termina).
 
@@ -127,3 +140,62 @@ def nivel_visible(volumen: float) -> float:
         return 0.0
     db = 20.0 * math.log10(volumen)
     return max(0.0, min(1.0, (db + 60.0) / 60.0))
+
+
+class Captura:
+    """Mantiene abierto `parec` sobre la salida por defecto.
+
+    Si cambia la salida (por ejemplo, se conectan unos auriculares Bluetooth a
+    mitad de sesión), cierra `parec` y lo reabre sobre la nueva. Solo consulta
+    `pactl` cada `revisar_cada` segundos: dos llamadas pequeñas, sin gastar RAM.
+
+    Con `seguir=False` (el usuario eligió `--fuente`) nunca cambia de fuente.
+    """
+
+    def __init__(self, fuente: str, seguir: bool = True,
+                 revisar_cada: float = 15.0) -> None:
+        self.fuente = fuente
+        self.seguir = seguir
+        self.revisar_cada = revisar_cada
+        self.cerrada = False
+        self._proceso: subprocess.Popen | None = None
+        self._proxima_revision = 0.0
+        self._abrir()
+
+    def _abrir(self) -> None:
+        if self._proceso is not None:
+            _cerrar(self._proceso)
+        self._proceso = abrir_captura(self.fuente)
+        self._proxima_revision = time.monotonic() + self.revisar_cada
+
+    def _revisar(self) -> bool:
+        """Reabre si cambió la salida por defecto. Devuelve True si reabrió."""
+        if self.cerrada or not self.seguir:
+            return False
+        nueva = mejor_monitor()
+        if not nueva or nueva == self.fuente:
+            return False
+        self.fuente = nueva
+        self._abrir()
+        return True
+
+    def leer(self, n_bytes: int) -> bytes:
+        """Lee PCM de la fuente actual, cambiando de fuente si hace falta."""
+        if self.cerrada or self._proceso is None:
+            return b""
+        datos = leer(self._proceso, n_bytes)
+        if datos:
+            if time.monotonic() >= self._proxima_revision:
+                self._revisar()
+            return datos
+        # `parec` terminó: o se desconectó el dispositivo, o cambió la salida.
+        if self._revisar() and self._proceso is not None:
+            return leer(self._proceso, n_bytes)
+        return b""
+
+    def cerrar(self) -> None:
+        """Cierra la captura y no la reabre."""
+        self.cerrada = True
+        if self._proceso is not None:
+            _cerrar(self._proceso)
+            self._proceso = None

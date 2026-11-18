@@ -30,7 +30,7 @@ python subtitulos.py --dispositivo 3
 
 # Opciones previstas
 --modelo small.en      # o base.en si el equipo va justo
---chunk 5              # segundos de audio por bloque
+--chunk 12             # duración máxima de un bloque (se corta antes en las pausas)
 --traductor argos      # argos (offline) | deepl (requiere clave)
 ```
 
@@ -39,7 +39,7 @@ python subtitulos.py --dispositivo 3
 ```
  ┌──────────────┐  PCM 16 kHz  ┌───────────────┐  inglés  ┌────────────┐  español
  │ Audio del    │ ───────────► │ Whisper local │ ───────► │ Traductor  │ ───────► terminal
- │ sistema      │  trozos ~5 s │ (CPU, int8)   │  texto   │ Argos/API  │
+ │ sistema      │ trozos hasta 12 s │ (CPU, int8)   │  texto   │ Argos/API  │
  └──────────────┘              └───────────────┘          └────────────┘
         ▲
         │  parec            (Linux, monitor de PipeWire)
@@ -67,9 +67,13 @@ Más un archivo de datos, que no es código: `glosario.txt` (ver abajo).
 - Linux: `parec --format=s16le --rate=16000 --channels=1` escribe PCM crudo por
   *stdout*. Cero librerías de audio.
 - Windows: WASAPI en modo compartido remuestrea solo; se le pide 16 kHz directamente.
-- **Troceado:** bloques de ~5 s, cortando preferentemente en un silencio (0,3 s) para no
-  partir palabras. Si un bloque está por debajo de un umbral de volumen, **no se
-  transcribe**: eso ahorra la mayor parte de la CPU en los ratos muertos.
+- **Troceado:** se acumula audio y el bloque se cierra en la primera pausa de **0,3 s**,
+  con un **tope de 12 s** por si alguien habla sin parar. Así llega la frase entera a
+  Whisper y a Argos (con bloques fijos de 5 s se partían y la traducción perdía el
+  sujeto). La pausa final no se envía. Si un bloque no tiene voz, **no se transcribe**:
+  eso ahorra la mayor parte de la CPU en los ratos muertos.
+- **VAD antes de transcribir:** Whisper descarta música, ruido y silencio. Sin eso, un
+  bloque que acaba en ruido hace que el modelo se repita y cuesta hasta 6× más.
 
 ### Dos hilos
 
@@ -219,12 +223,12 @@ de la máquina.
 
 | Etapa | Tiempo |
 |---|---|
-| Acumular un bloque | 4–5 s |
-| Transcribir (`small.en` int8, 4 núcleos) | 1,5–3 s |
+| Acumular un bloque | hasta 12 s (corta en la pausa) |
+| Transcribir (`base.en` int8, 2 núcleos) | 2–4 s |
 | Traducir | 0,1–0,3 s |
-| **Total percibido** | **6–8 s** |
+| **Total percibido** | **4–8 s** (según la pausa) |
 
-Si supera los 12 s, se baja a `base.en` o se recorta el bloque a 3 s.
+Si supera los 12 s, se baja el tope con `--chunk 8` (el corte por pausa sigue activo).
 
 ## Requisitos
 
