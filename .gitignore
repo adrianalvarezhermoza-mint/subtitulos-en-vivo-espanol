@@ -1,0 +1,28 @@
+# Entorno de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Modelos descargados (se vuelven a bajar; no van al repositorio)
+modelos/
+*.bin
+*.ggml
+*.onnx
+
+# Audio y pruebas
+*.raw
+*.wav
+*.mp3
+*.m4a
+*.srt
+pruebas/
+
+# Secretos
+.env
+*.key
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
