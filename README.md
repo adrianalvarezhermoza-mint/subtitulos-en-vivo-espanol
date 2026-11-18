@@ -9,9 +9,9 @@ retraso de 6–10 segundos es aceptable y el diseño puede ser mucho más simple
 ## Autoría y créditos
 
 **Código y documentación escritos por un asistente de IA (OpenCode)**, a partir de
-las indicaciones de **spicyguy17**. Las pruebas en vivo, las decisiones de diseño y
-la verificación de los resultados (incluido el cambio de dispositivo Bluetooth y
-las medidas de RTF y de traducción) las hizo spicyguy17 en su equipo.
+las indicaciones de **Adrian Alvarez Hermoza**. Las pruebas en vivo, las decisiones
+de diseño y la verificación de los resultados (incluido el cambio de dispositivo
+Bluetooth y las medidas de RTF y de traducción) las hizo Adrian en su equipo.
 
 Se declara expresamente para no atribuir a una persona trabajo realizado por IA.
 

@@ -325,7 +325,7 @@ notaba que faltaba texto. Ahora `vivo()` cuenta los `queue.Full` y al salir avis
 Nota (2026-11-17): antes del hito 4 conviene corregir la documentación; ver
 «Revisión de código». Ningún hallazgo bloquea la prueba con la reunión real.
 También se añadió «Autoría y créditos» en `README.md` para publicar en GitHub
-(código escrito por IA, pruebas y decisiones de spicyguy17).
+(código escrito por IA, pruebas y decisiones de Adrian Alvarez Hermoza).
 
 ## Decisión tomada: PyTorch CPU
 
@@ -491,12 +491,11 @@ trabajador. Si falla al abrirlo, avisa y sigue sin traducir de menos.
 - **`b2c6be6` — «Hito 3 cerrado: traduccion EN->ES con Argos y corte por pausa».**
   Incluye `traductor.py`, el corte por pausa, el VAD, el cambio de dispositivo y
   la documentación (783 líneas añadidas).
-- **Identidad:** no hay `user.name`/`user.email` en la configuración. Los cinco
-  commits están firmados como `spicyguy17 <spicyguy17@localhost>`; se hicieron con
-  variables de entorno para no tocar la configuración global. Para fijarla:
-  `git config user.name "..."` y `git config user.email "..."`.
-- **Sin remoto:** `git remote -v` está vacío. No se ha hecho push. Para publicar
-  hay que crear el repo en GitHub y añadir el remoto; el usuario no lo pidió aún.
+- **Identidad:** los commits están a nombre de **Adrian Alvarez Hermoza**, con el
+  correo de GitHub `358024188+adrianalvarezhermoza-mint@users.noreply.github.com`
+  para que aparezcan vinculados a su perfil. La licencia y los créditos usan el
+  mismo nombre.
+- **Sin remoto:** `git remote -v` está vacío. No se ha hecho push todavía.
 - `.gitignore` comprobado antes del commit: cubre `.venv/`, `__pycache__/`,
   `modelos/`, `pruebas/` y `transcripcion-*.txt`. No se subió nada pesado ni ningún
   dato de una sesión.
