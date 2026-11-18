@@ -1,0 +1,10 @@
+# Glosario de la reunión
+#
+# Una línea, separado por comas. Se pasa a Whisper como texto previo
+# (initial_prompt) para que acierte con nombres propios, siglas y marcas.
+# Cuanto más corto y específico, mejor: 1–3 líneas.
+#
+# Ejemplo (sustituir por los de tu reunión):
+# Marta Ruiz, Kenji Watanabe, Logística, SLA, backlog, churn, rollout, versión 4.2
+#
+# Regla: cada palabra que salga mal en una prueba se añade aquí.

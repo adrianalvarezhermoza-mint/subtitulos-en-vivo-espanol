@@ -5,45 +5,63 @@
 
 ## Dónde estamos
 
-- Hito actual: **0 — Entorno listo** (diseño cerrado, todavía sin código)
-- Último cambio: se creó el proyecto, el `README.md` con la evaluación de motores y el
-  `PLAN.md` con los 7 hitos. Nada instalado.
-- ¿Funciona? **No** — no existe código todavía. Es lo esperado en el hito 0.
+- Hito actual: **1 — Escuchar el audio del sistema** (casi terminado)
+- Último cambio: hito 0 cerrado (`.venv` con pip, sin tocar el sistema) y hito 1
+  escrito: `audio.py` (captura con `parec`) y `subtitulos.py` (`--listar`, medidor).
+- ¿Funciona? **Sí, la captura.** Probada con un tono de prueba: 52 % de nivel. En
+  silencio marca 0 %. Falta la prueba real con un vídeo de YouTube.
+
+## Cómo ejecutarlo
+
+```bash
+cd /media/spicyguy17/Proyectos/python/subtitulos-en-vivo
+
+.venv/bin/python subtitulos.py --listar        # ver dispositivos
+.venv/bin/python subtitulos.py                 # medidor en vivo
+.venv/bin/python subtitulos.py --duracion 5    # prueba automática
+```
+
+No hace falta `activate`: se llama al Python del entorno directamente.
 
 ## Próxima acción
 
-1. Pedir permiso e instalar `python3-pip` y `python3-venv` (~15 MB) → cerrar hito 0.
-2. Crear `.venv` y escribir `audio.py` + `subtitulos.py --listar` (solo medidor de
-   volumen) → cerrar hito 1.
-3. Escribir `requirements.txt` **solo** cuando se sepa qué se instala en cada hito.
+1. **Tú:** poner un vídeo en inglés y ejecutar el medidor. Confirmar que la barra
+   sube y baja con la voz (criterio de fin del hito 1).
+2. Yo: `pip install faster-whisper` y escribir `motor.py` + el bucle de troceado
+   (hito 2). La primera ejecución descarga `small.en` (~500 MB).
+3. Medir el RTF e imprimirlo. Ese número decide `small.en` vs `base.en`.
 
 ## Decisiones tomadas
 
 - **Transcripción local con `faster-whisper small.en` (int8).** Privacidad (son voces
-  de otras personas), coste cero, sin dependencia de internet. La nube queda como plan
-  B y solo se evalúa si el hito 2 no da la talla. Comparativa completa en `README.md`.
-- **Traducción con Argos por defecto, DeepL como opción.** Argos es offline; DeepL
-  mejora la calidad recibiendo **solo texto**, nunca audio (límite gratuito ≈10 h/mes).
-- **Sin interfaz gráfica.** La salida es texto en la terminal, con `\r` para la frase en
-  curso. Es lo más liviano y funciona igual en Linux y CMD.
-- **Un solo código para los dos sistemas.** La diferencia se aísla en `audio.py`:
-  `parec` + monitor en Linux, WASAPI *loopback* con `soundcard` en Windows.
-- **Python 3.12** (ya instalado aquí) y entorno virtual en el proyecto.
-- **Menos de 400 líneas** repartidas en 4 archivos. Si crece, se recorta.
+  de otras personas), coste cero, sin dependencia de internet. La nube es plan B y
+  solo se evalúa si el hito 2 no da la talla.
+- **Traducción intercambiable: Argos (por defecto) y DeepL (opcional), con respaldo
+  automático.** Una función `traducir(texto)` y dos implementaciones detrás; ~30
+  líneas y 0 MB extra (DeepL usa `urllib`). Si DeepL falla, se sigue con Argos.
+  Carga perezosa y `requirements-offline.txt` para no arrastrar 150 MB si no se usan.
+- **Glosario en `glosario.txt` como `initial_prompt`.** La mejora más barata para
+  nombres y siglas. Es a la vez configuración y material de prueba.
+- **Sin interfaz gráfica.** Texto en la terminal, con `\r` para la frase en curso.
+- **Un solo código para Linux y Windows.** La diferencia se aísla en `audio.py`.
+- **Python 3.12 y `.venv` local.** `pip` se instaló dentro del entorno con
+  `--without-pip` + el script oficial de PyPA: **cero cambios en el sistema**.
+- **Menos de 400 líneas** en 4 archivos. Si crece, se recorta.
 
 ## Bugs conocidos
 
-- [ ] Ninguno todavía (no hay código).
+- [ ] Ninguno.
 
 ## No tocar
 
-- Nada por ahora. Cuando el hito 2 funcione, se anotará aquí el bloque de
-  `motor.transcribir()` como estable.
+- `audio.leer()` y `audio.rms()`: funcionan y son la base de todo lo demás. Si hay que
+  tocar algo del audio, primero se añade una prueba.
 
 ## Notas de entorno
 
 - Desarrollo y pruebas: este equipo (Linux Mint 22.3, 4 núcleos, sin GPU, 55 GB libres).
 - Despliegue: el Windows del usuario (≥8 GB RAM), vía CMD.
-- El monitor de audio de este equipo es
-  `alsa_output.pci-0000_00_1b.0.analog-stereo.monitor` — pero el código **no** debe
-  llevarlo escrito: tiene que descubrirlo con `pactl`.
+- Monitor detectado aquí: `alsa_output.pci-0000_00_1b.0.analog-stereo.monitor`, pero el
+  código lo descubre con `pactl get-default-sink`; **no** está escrito a mano.
+- Un tono de 440 Hz al 5 % de amplitud da ~52 % en el medidor: sirve como prueba
+  rápida sin depender de un vídeo.

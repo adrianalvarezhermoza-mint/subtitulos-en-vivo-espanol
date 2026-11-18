@@ -11,17 +11,18 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 ## Hito 0 — Entorno listo
 
 - **Qué hace:** deja Python en condiciones de instalar librerías.
-- **Comandos:**
+- **Comandos (hecho, sin `sudo`):**
   ```bash
-  sudo apt install python3-pip python3-venv      # ~15 MB
   cd /media/spicyguy17/Proyectos/python/subtitulos-en-vivo
-  python3 -m venv .venv
-  source .venv/bin/activate
-  python -m pip install --upgrade pip
+  python3 -m venv --without-pip .venv
+  curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+  .venv/bin/python /tmp/get-pip.py
   ```
-- **Cómo se prueba:** `python -m pip --version` responde con una versión.
-- **Terminado cuando:** `pip` funciona **dentro** del entorno `.venv` y no fuera.
-- **Estado:** pendiente — **requiere permiso explícito de instalación**.
+  No hizo falta instalar `python3-venv` en el sistema: `--without-pip` + el script
+  oficial de PyPA deja `pip` **dentro** del entorno, sin tocar nada del sistema.
+- **Cómo se prueba:** `.venv/bin/python -m pip --version` responde.
+- **Terminado cuando:** `pip` funciona dentro del entorno y no fuera.
+- **Estado:** **hecho** (2026-11-07) — pip 26.3 dentro de `.venv`.
 
 ---
 
@@ -43,7 +44,10 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
   cortes ni errores durante 2 minutos seguidos.
 - **Riesgo:** el nombre del monitor cambia si se conectan auriculares. El programa debe
   **descubrirlo solo**, no llevarlo escrito a mano.
-- **Estado:** pendiente
+- **Estado:** **escrito y verificado a medias** (2026-11-07). `audio.py` y
+  `subtitulos.py` existen; la captura responde a un tono de prueba (52 % de nivel) y
+  marca 0 % en silencio. **Falta** confirmarlo con un vídeo de YouTube, que es la
+  prueba que cuenta.
 
 ---
 
@@ -116,14 +120,48 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
 
 ---
 
-## Hito 5 — Prueba con una reunión de verdad
+## Hito 5 — Prueba con una reunión de verdad y refinamiento
 
-- **Qué hace:** validar con audio realista (varias voces, acentos, compresión de Zoom).
+- **Qué hace:** validar con audio realista (varias voces, acentos, compresión de Zoom)
+  y corregir **con datos, no a ojo**.
 - **Preparación:** avisar a los participantes. Grabar 10 minutos de una reunión de
-  prueba, o usar una grabación a la que se tenga derecho.
+  prueba, o usar una grabación a la que se tenga derecho. Ese material **no cambia
+  nunca**: todas las comparaciones se hacen contra él.
+
+### A — Línea base, antes de tocar código
+
+Añadir `--registro`, que guarde un JSON por bloque: hora, segundos de audio, RTF, nivel
+RMS, texto inglés, texto español, bloques descartados y longitud de la cola. Sin ese
+registro no hay refinamiento, hay opiniones.
+
+### B — Clasificar cada fallo en una sola caja
+
+| Caja | Síntoma | Arreglo | Coste |
+|---|---|---|---|
+| No oyó | huecos en blanco | bajar umbral de silencio, `--listar` | minutos |
+| Oyó mal | nombres, siglas, acentos | `glosario.txt` como `initial_prompt` | minutos |
+| Tradujo mal | inglés correcto, español raro | glosario, DeepL, partir frases | minutos |
+| Llegó tarde | texto viejo, cola creciendo | bloque más corto, `beam_size=1` | horas |
+| Cortó frases | frases partidas | cortar en silencio (0,3 s) | ~30 min |
+
+Se cuentan las frases de cada caja y se trabaja **por número de frases afectadas**, no
+por lo que suene más interesante.
+
+### C — Un cambio por vez
+
+Se cambia una cosa, se vuelve a pasar los 10 minutos, y se anota el antes/después en
+`ESTADO.md`. Si empeora, se revierte. Si se cambian tres cosas a la vez y mejora, no se
+sabe cuál fue.
+
+### D — Cuándo parar
+
+Cuando se entiendan **8 de cada 10 frases** y las 2 que fallan sean nombres propios o
+cifras: eso se resuelve mirando la pantalla un segundo, no con más código.
+
 - **Cómo se prueba:** reproducir la grabación y leer los subtítulos en vivo.
-- **Terminado cuando:** se entiende **al menos 8 de cada 10 frases**. Si no, se anota
-  qué falla (nombres, siglas, acentos, cortes) en `ESTADO.md` antes de tocar código.
+- **Terminado cuando:** 8/10 frases entendidas, en dos rondas seguidas.
+- **Estimación:** 3 rondas de ~1 h. La primera (glosario + cortes en silencio) suele
+  resolver la mitad de los problemas.
 - **Estado:** pendiente
 
 ---

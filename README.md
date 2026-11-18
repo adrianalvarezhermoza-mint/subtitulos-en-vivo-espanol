@@ -58,6 +58,8 @@ Cuatro piezas, cuatro archivos. Ni una más:
 Objetivo: **menos de 400 líneas en total**. Si se pasa de 800, algo se está
 sobre-diseñando.
 
+Más un archivo de datos, que no es código: `glosario.txt` (ver abajo).
+
 ### Formato de audio
 
 - **16 kHz, mono, 16 bits** — es lo que Whisper espera; convertir antes de transcribir
@@ -82,6 +84,22 @@ retraso. Nunca se bloquea la lectura de audio.
   terminar. Sin repintar la pantalla → sin parpadeo.
 - UTF-8 en ambos sistemas (`chcp 65001` en CMD + `reconfigure` en Python).
   En CMD hace falta una fuente TrueType (Consolas) o las tildes salen como cajas.
+
+### Glosario: la mejora más barata
+
+`glosario.txt` es una lista de nombres propios, siglas y términos de la reunión:
+
+```
+Marta Ruiz, Kenji Watanabe, Logística, SLA, backlog, churn, rollout, versión 4.2
+```
+
+Se pasa como `initial_prompt` a Whisper (texto previo que orienta la transcripción)
+y opcionalmente a DeepL como términos que no debe traducir. **Una línea de código,
+y los nombres dejan de salir deformados.** Es la mejora con mejor relación
+esfuerzo/resultado en audio de reunión.
+
+El mismo archivo sirve como **material de prueba**: se le van añadiendo las palabras
+que fallaron en el hito 5.
 
 ## Evaluación: ¿transcripción con IA en la nube o local?
 
@@ -127,11 +145,60 @@ se entiende peor que uno al 85% y traducido al 95%.
 | Argos Translate en→es | local | suficiente para entender; flojo con jerga y nombres | 0 | no |
 | DeepL API Free | nube | notablemente mejor | 0 hasta 500 000 caracteres/mes (≈10 h de reunión) | sí, solo texto |
 
-**Decisión: Argos por defecto (offline total), DeepL como opción.**
+**Decisión: los dos son intercambiables; Argos por defecto, DeepL opcional.**
 
 La clave: DeepL **solo recibe texto, nunca audio**. Es un compromiso razonable si la
-calidad de Argos no basta. El código no cambia: `--traductor deepl` y una clave en
-`.env` (que no se sube al repositorio).
+calidad de Argos no basta.
+
+### Cómo se hace el intercambio
+
+Una sola función pública y dos implementaciones escondidas detrás:
+
+```
+traductor.py
+├── traducir(texto) -> texto     ← lo único que ve el resto del programa
+├── _argos(texto)                ← offline
+└── _deepl(texto)                ← HTTP con urllib (biblioteca estándar)
+```
+
+```toml
+# config.toml
+traductor = "argos"   # argos | deepl
+```
+
+`subtitulos.py` no cambia ni una línea. Es la misma frontera que en `motor.py`.
+
+**Respaldo automático:** si DeepL falla (sin internet, cuota agotada, clave
+inválida), se usa Argos y se avisa con una línea. El peor caso nunca es "la reunión
+se queda sin subtítulos". Coste: ~10 líneas.
+
+**Qué pesa:**
+
+| Elemento | Coste marginal |
+|---|---|
+| Código del conmutador | ~30 líneas (< 2 KB) |
+| Cliente de DeepL | **0 MB** — `urllib` ya viene con Python |
+| Paquete `argostranslate` | ~3–5 MB |
+| Modelo Argos en→es | ~120–160 MB en disco |
+| RAM con Argos cargado | ~150–300 MB |
+| RAM con DeepL | ~0 |
+
+La opción "gratis y offline" es la **pesada**; la de nube no ocupa nada local pero
+necesita internet, una clave y que el texto salga del equipo.
+
+**Dos trucos para que no engorde:**
+
+1. **Carga perezosa:** Argos se importa solo cuando se usa. En modo DeepL esos
+   ~300 MB de RAM nunca se tocan.
+2. **Requisitos separados:** `requirements.txt` con lo mínimo y
+   `requirements-offline.txt` con `argostranslate`. Quien use solo DeepL no
+   descarga el modelo.
+
+**Aviso sobre el plan gratuito de DeepL:** 500 000 caracteres/mes (≈ 10 h de
+reunión), pero para obtener la clave suelen pedir tarjeta para verificar identidad
+—sin cobro dentro del límite—. Hay que comprobarlo antes de prometer que sale
+gratis. La clave gratuita termina en `:fx` y usa `api-free.deepl.com`; el código
+elige el endpoint según la clave.
 
 ## Qué cambia entre Linux y Windows
 
