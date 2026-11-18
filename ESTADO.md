@@ -251,7 +251,8 @@ Comprobado que no se come la voz:
 ## Prueba en vivo con VAD (2026-11-07 21:15)
 
 12 bloques seguidos de un vídeo sobre Windows 8, Steam y Linux. **No era el de
-Picasso**: ese sigue pendiente.
+Picasso, pero da igual**: lo que se probaba era el VAD, no el vocabulario. Repetir
+ese vídeo se ha descartado (ver «Próxima acción»).
 
 - **Ninguna cadena de `S***` y ninguna frase duplicada.** Era justo lo que faltaba
   por comprobar después de activar el VAD.
@@ -270,11 +271,13 @@ Picasso**: ese sigue pendiente.
 
 ## Próxima acción
 
-1. Glosario, 5 min: añadir `Steam, Valve, Gabe Newell, Microsoft Store, Windows 8`
-   (vídeo de Windows 8), `yacht` (vídeo de yates) y `Gunnecht` (Picasso). Repetir
-   el vídeo de Windows 8 y comprobar que desaparecen «Steve» y «válvula».
-2. **Prueba del vídeo de Picasso de verdad**: en la sesión anterior se puso otro
-   vídeo. Comprobar `S***`, duplicados y el apellido del electricista.
+1. **Llenar `glosario.txt` con los datos reales de la reunión**, no con vocabulario
+   de vídeos: nombres de quienes hablan, empresa, producto y siglas internas. Máximo
+   1–3 líneas, porque Whisper solo usa ~224 tokens del texto de apoyo y lo corta si
+   sobra (una lista larga empeora el resultado en vez de mejorarlo).
+2. **Primera prueba con una reunión real** (o un vídeo del tema de la reunión).
+   Apuntar solo las palabras que salgan mal **y se repitan**; añadirlas al glosario.
+   No perseguir el vocabulario de cada vídeo: es infinito y no se traslada.
 3. Decidir el hito 4: **solo si las reuniones van a ser en Windows**. Si son en el
    navegador de este Linux, no hace falta.
 4. Añadir `--bench` para que la medición del hito 4 sea un solo comando.
