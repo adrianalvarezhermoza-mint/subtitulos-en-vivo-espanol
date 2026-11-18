@@ -20,8 +20,9 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 IDIOMA = "en"
-MODELO_POR_DEFECTO = "small.en"
 RAIZ_MODELOS = Path(__file__).parent / "modelos"
+# Apunta a la carpeta descargada, no al nombre: así no intenta bajar nada al arrancar.
+MODELO_POR_DEFECTO = str(RAIZ_MODELOS / "base.en-local")
 
 _modelo: WhisperModel | None = None
 _nombre_cargado: str | None = None
@@ -37,13 +38,13 @@ def cargar(nombre: str = MODELO_POR_DEFECTO) -> WhisperModel:
     if _modelo is not None and _nombre_cargado == nombre:
         return _modelo
 
-    print(f"Cargando modelo {nombre} (la primera vez descarga ~500 MB)…", flush=True)
+    print(f"Cargando modelo {nombre}…", flush=True)
     _modelo = WhisperModel(
         nombre,
         device="cpu",
         compute_type="int8",
         download_root=str(RAIZ_MODELOS),
-        cpu_threads=4,
+        cpu_threads=2,
     )
     _nombre_cargado = nombre
     return _modelo

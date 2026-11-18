@@ -71,10 +71,10 @@ Regla de oro: **no se empieza un hito hasta que el anterior cumple su criterio d
   - RTF < 0,4 pero texto pobre → probar `medium.en` y medir otra vez.
   - Texto pobre incluso con `medium` → evaluar nube (Groq u OpenAI). El cambio es de
     una línea en `motor.py`.
-- **Estado:** **en curso** (2026-11-07). Calidad: correcta. Velocidad en este equipo:
-  RTF 2,24 (`small.en`, 2 hilos) — insuficiente. `base.en` no se pudo descargar por
-  caída de la red. **La decisión del modelo se traslada al hito 4**, porque este
-  equipo es el peor caso y no representa al Windows. Medidas completas en `ESTADO.md`.
+- **Estado:** **cerrado** (2026-11-07). Modelo elegido: **`base.en`, 2 hilos, int8 →
+  RTF 0,71–0,73** en este equipo. `small.en` quedó en 2,24 y se descartó. Texto algo
+  peor que `small.en` pero comprensible. Medidas completas en `ESTADO.md`. En Windows
+  se puede intentar subir a `small.en` (hito 4).
 
 ---
 
