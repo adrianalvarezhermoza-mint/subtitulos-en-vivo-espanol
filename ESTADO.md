@@ -495,7 +495,10 @@ trabajador. Si falla al abrirlo, avisa y sigue sin traducir de menos.
   correo de GitHub `358024188+adrianalvarezhermoza-mint@users.noreply.github.com`
   para que aparezcan vinculados a su perfil. La licencia y los créditos usan el
   mismo nombre.
-- **Sin remoto:** `git remote -v` está vacío. No se ha hecho push todavía.
+- **Publicado el 2026-11-17:** `https://github.com/adrianalvarezhermoza-mint/subtitulos-en-vivo-espanol`.
+  Rama `main` alineada con `origin/main`. Verificado desde la API de GitHub: los
+  12 archivos remotos coinciden con el commit local y no incluyen transcripciones,
+  modelos, entorno ni pruebas. El token usado para crear el repo se borró al terminar.
 - `.gitignore` comprobado antes del commit: cubre `.venv/`, `__pycache__/`,
   `modelos/`, `pruebas/` y `transcripcion-*.txt`. No se subió nada pesado ni ningún
   dato de una sesión.
