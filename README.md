@@ -75,7 +75,7 @@ Más un archivo de datos, que no es código: `glosario.txt` (ver abajo).
   sería gastar CPU para nada.
 - Linux: `parec --format=s16le --rate=16000 --channels=1` escribe PCM crudo por
   *stdout*. Cero librerías de audio.
-- **Troceado:** se acumula audio y el bloque se cierra en la primera pausa de **0,3 s**,
+- **Troceado:** se acumula audio y el bloque se cierra en la primera pausa de **0,7 s**,
   con un **tope de 12 s** por si alguien habla sin parar. Así llega la frase entera a
   Whisper y a Argos (con bloques fijos de 5 s se partían y la traducción perdía el
   sujeto). La pausa final no se envía. Si un bloque no tiene voz, **no se transcribe**:

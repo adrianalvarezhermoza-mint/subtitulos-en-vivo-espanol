@@ -139,7 +139,7 @@ registro no hay refinamiento, hay opiniones.
 | Oyó mal | nombres, siglas, acentos | `glosario.txt` como `initial_prompt` | minutos |
 | Tradujo mal | inglés correcto, español raro | glosario, DeepL, partir frases | minutos |
 | Llegó tarde | texto viejo, cola creciendo | bloque más corto, `beam_size=1` | horas |
-| Cortó frases | frases partidas | cortar en silencio (0,3 s) | ~30 min |
+| Cortó frases | frases partidas | cortar en silencio (0,7 s) | ~30 min |
 
 Se cuentan las frases de cada caja y se trabaja **por número de frases afectadas**, no
 por lo que suene más interesante.

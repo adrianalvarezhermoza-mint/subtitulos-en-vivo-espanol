@@ -174,8 +174,8 @@ El traductor no falló: **la unidad que recibe está partida**. Dos causas:
    primer trozo, el español pierde el hilo.
 
 Arreglo previsto (hito 5, caja «Cortó frases», ~30 min): **cortar en silencio**
-(≥0,3 s) en vez de a los 5 s fijos, con un tope máximo de ~12 s para que un orador
-rápido no bloquee la salida.
+(≥0,3 s entonces; 0,7 s desde el 2026-11-17) en vez de a los 5 s fijos, con un tope
+máximo de ~12 s para que un orador rápido no bloquee la salida.
 
 - Subir `--chunk` a 10 s **no** es la solución: con RTF ~1 el retraso ya es de 5–6 s y
   crecería. Bloques variables dan frases completas sin esperar de más.
@@ -188,7 +188,8 @@ rápido no bloquee la salida.
 Cambio en el hilo `lector` de `subtitulos.py`:
 
 - `SEGUNDOS_BLOQUE` pasa de 5,0 a **12,0** y deja de ser un ritmo fijo: ahora es el **tope**.
-- `PAUSA_CORTE = 0,3` s cierra el bloque; `MIN_BLOQUE = 1,0` s evita trozos sin contexto.
+- `PAUSA_CORTE = 0,3` s cerraba el bloque; `MIN_BLOQUE = 1,0` s evita trozos sin contexto.
+  El 2026-11-17 se subió a **0,7 s** tras la prueba con vídeo (ver sección más abajo).
 - El silencio inicial no se acumula y la pausa final no se envía a Whisper.
 - Si la captura termina sola, el último trozo se envía (antes se perdía).
 - `--chunk` sigue existiendo, pero ahora significa «tope».
@@ -347,8 +348,9 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 - **`cpu_threads=2`**, no 4. Medido: 0,73 contra 0,97.
 - **`MODELO_POR_DEFECTO` es la ruta local**, no el nombre: así no intenta descargar al
   arrancar y falla rápido si falta el modelo.
-- **Corte por pausa (0,3 s) con tope de 12 s**, no bloques fijos de 5 s. Medido en
-  este equipo: RTF 0,23–0,30 contra 0,41–0,58, y las frases llegan enteras al traductor.
+- **Corte por pausa (0,7 s; era 0,3 s) con tope de 12 s**, no bloques fijos de 5 s.
+  Medido en este equipo: RTF 0,23–0,30 contra 0,41–0,58, y las frases llegan enteras
+  al traductor.
 - **`vad_filter=True` siempre.** Medido con ruido al final: 3,47 s contra 20,07 s. Con
   voz limpia no cambia el texto. Sin VAD, un bloque con música hace que `base.en` se
   repita.
@@ -376,7 +378,7 @@ aunque no haya GPU, así que se instaló **primero** el wheel CPU:
 - **`vad_filter=True`**: no quitarlo. Sin él, un bloque con música o ruido hace que
   `base.en` se repita y cuesta hasta 6× más.
 - **`SEGUNDOS_BLOQUE = 12.0` es un tope, no un ritmo**: el bloque se cierra en la pausa
-  de 0,3 s. No volver a fijar bloques por reloj.
+  de 0,7 s. No volver a fijar bloques por reloj.
 
 ## Revisión de código (2026-11-17)
 
@@ -480,6 +482,23 @@ trabajador. Si falla al abrirlo, avisa y sigue sin traducir de menos.
 - El cierre del archivo usa un `Lock` y espera al trabajador: si se pulsa Ctrl+C
   mientras se transcribe el último bloque, ya no puede cerrarse a mitad de una
   escritura ni perderse esa frase por escribir sobre un archivo cerrado.
+
+## Prueba del usuario y ajuste de pausa (2026-11-17)
+
+El usuario hizo la prueba con un vídeo de una reunión. Hubo un momento de lentitud
+al arrancar (pico al cargar modelos y abrir el vídeo a la vez); no fue falta de
+disco: quedan 51 GB libres en la unidad del proyecto y no quedó ningún proceso
+colgado. La transcripción se guardó bien (3,2 KB, ~35 frases en 3 min).
+
+Al revisarla se vieron muchas frases partidas («We should be able to», «see anyone
+in the.»). El vídeo tenía pausas cortas frecuentes y `PAUSA_CORTE = 0,3` cerraba el
+bloque demasiado pronto; Argos traducía cada trozo sin contexto. Se subió la pausa a
+**0,7 s** para que lleguen frases más completas. Coste: medio segundo más de retraso
+por frase.
+
+Queda pendiente repetir una prueba corta con el nuevo valor y, sobre todo, rellenar
+el glosario: en la prueba «Slack» salió como «hollín»/«esclava» y apareció una
+alucinación («¡Yodiolum!»).
 
 ## Git
 

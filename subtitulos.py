@@ -25,7 +25,7 @@ import traductor
 
 UMBRAL_SILENCIO = 0.008  # por debajo de esto no vale la pena gastar CPU
 SEGUNDOS_BLOQUE = 12.0   # tope: un bloque nunca crece más que esto
-PAUSA_CORTE = 0.3        # esta pausa cierra la frase (segundos)
+PAUSA_CORTE = 0.7        # esta pausa cierra la frase (segundos)
 MIN_BLOQUE = 1.0         # no cortar antes: un trozo más corto no da contexto
 
 
